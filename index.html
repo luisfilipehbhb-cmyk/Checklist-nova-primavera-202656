@@ -1,0 +1,4795 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Tarefas</title>
+    <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#e84040" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tarefas" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Bloqueia pull-to-refresh */
+    html { overscroll-behavior-y: none; }
+
+
+    :root {
+      --bg: #f9f8f6;
+      --surface: #ffffff;
+      --red: #e84040;
+      --red-soft: #ffffff;
+      --red-border: #ffd6d6;
+      --green: #2e9e5b;
+      --green-soft: #f0fdf4;
+      --green-border: #c3f0d5;
+      --text: #1a1a1a;
+      --muted: #b0b0b0;
+    }
+
+    html, body {
+      height: 100%; width: 100%;
+      background: var(--bg);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+      overflow: hidden;
+      text-transform: uppercase;
+    }
+
+    .layout { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* ── HEADER ── */
+    header { padding: 52px 24px 0; background: var(--bg); flex-shrink: 0; }
+    .header-row {
+      display: flex; align-items: flex-end;
+      justify-content: space-between; margin-bottom: 18px;
+    }
+    header h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 30px; font-weight: 400; letter-spacing: -0.5px;
+    }
+    #clear-btn, #grade-btn {
+      background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 7px 14px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.12s;
+    }
+    /* Oculto a pedido do usuário — mantém a função no código, só some da UI.
+       Para reexibir, remova esta regra. */
+    #grade-btn { display: none !important; }
+    #clear-btn { color: var(--green); }
+    #grade-btn { color: var(--muted); }
+    #grade-btn.active { color: var(--text); border-color: #c8c8c8; background: #f0eeeb; }
+    #clear-btn:active, #grade-btn:active { transform: scale(0.93); }
+    #export-btn, #import-btn, #edit-btn, #delete-btn, #undo-btn {
+      background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 7px 14px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.12s;
+      color: var(--muted);
+    }
+    #export-btn:active, #import-btn:active, #edit-btn:active, #delete-btn:active, #undo-btn:active { transform: scale(0.93); }
+    #undo-btn { color: #7c3aed; }
+    #undo-btn:disabled { opacity: 0.32; pointer-events: none; }
+    #export-btn { color: #2563eb; }
+
+    /* ── MOVER CATEGORIA (última tocada) ── */
+    #cat-move-left-btn, #cat-move-right-btn {
+      background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 7px 10px;
+      font-size: 14px; cursor: pointer; line-height: 1;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.12s;
+    }
+    #cat-move-left-btn:active, #cat-move-right-btn:active { transform: scale(0.88); }
+
+    #today-display-btn {
+      background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 6px 16px;
+      font-family: 'DM Sans', sans-serif; font-weight: 700;
+      cursor: default; pointer-events: none;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      display: flex; flex-direction: column; align-items: center;
+      line-height: 1.2; color: var(--text);
+    }
+    #today-display-btn .td-day { font-size: 13px; font-weight: 700; }
+    #today-display-btn .td-month { font-size: 11px; letter-spacing: 0.06em; color: var(--muted); font-weight: 500; }
+
+    /* ── EMOJI SORT ── */
+    #emoji-sort-btn {
+      background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 7px 14px;
+      font-size: 14px; cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.12s;
+    }
+    #emoji-sort-btn:active { transform: scale(0.93); }
+    #emoji-sort-panel {
+      display: none;
+      position: absolute; top: calc(100% + 8px); left: 0;
+      background: #fff; border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+      padding: 10px 12px; gap: 8px;
+      flex-direction: column;
+      z-index: 200;
+    }
+    #emoji-sort-panel.show { display: flex; }
+    .emoji-sort-chip {
+      font-size: 22px; background: #f5f5f5; border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 6px 10px;
+      cursor: pointer; transition: transform 0.12s, background 0.12s;
+      line-height: 1;
+    }
+    .emoji-sort-chip:active { transform: scale(0.88); }
+    .emoji-sort-chip.active { background: var(--text); border-color: var(--text); }
+    #import-btn { color: #7c3aed; }
+    #emoji-filter-btn {
+      background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 7px 14px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.12s;
+      color: #0d9488;
+    }
+    #emoji-filter-btn:active { transform: scale(0.93); }
+
+    /* ── FILTRAR POR EMOJI (popup) ── */
+    #emoji-filter-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+      z-index: 100; display: flex; align-items: flex-start;
+      justify-content: center; padding-top: 60px;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    #emoji-filter-modal-backdrop.show { opacity: 1; pointer-events: all; }
+    #emoji-filter-modal-backdrop .modal {
+      border-radius: 24px; width: calc(100% - 32px); max-width: 480px;
+      max-height: 80vh; overflow-y: auto;
+      transform: translateY(-20px); transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+    }
+    #emoji-filter-modal-backdrop.show .modal { transform: translateY(0); }
+    .filter-emoji-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .filter-emoji-big {
+      flex: 1 1 18%; min-width: 52px; font-size: 24px; line-height: 1; padding: 12px 0;
+      background: var(--bg); border: 1.5px solid #e8e8e8; border-radius: 18px;
+      cursor: pointer; transition: transform 0.12s, background 0.12s, border-color 0.12s;
+    }
+    .filter-emoji-big:active { transform: scale(0.92); }
+    .filter-emoji-big.active { background: #1a1a1a; border-color: #1a1a1a; }
+    .filter-results-label {
+      font-size: 11px; letter-spacing: 0.04em; color: var(--muted);
+      margin-bottom: 8px; min-height: 14px;
+    }
+    .filter-results-list { display: flex; flex-direction: column; gap: 8px; }
+    .filter-result-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 14px; border: 1.5px solid #e8e8e8; border-radius: 14px;
+      background: var(--bg); cursor: pointer; transition: transform 0.1s;
+    }
+    .filter-result-row:active { transform: scale(0.98); }
+    .filter-result-check {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      border: 2px solid #d8d8d8;
+    }
+    .filter-result-row span { font-size: 13px; line-height: 1.4; text-transform: uppercase; }
+    .filter-result-cat {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .filter-result-date {
+      font-size: 11px; font-weight: 600; color: #b5442e;
+      text-transform: none;
+    }
+    .filter-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 20px 0; }
+    #search-btn { color: #0ea5e9; }
+    #search-btn.search-active { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+    #edit-btn { color: #d97706; }
+    #edit-btn.edit-mode-active { background: #d97706; border-color: #d97706; color: #fff; }
+    .task.edit-mode-hover { cursor: pointer; outline: 2px dashed #d97706; outline-offset: 2px; }
+    #delete-btn.delete-mode-active { background: var(--red); border-color: var(--red); color: #fff; }
+    .task.delete-mode-hover { cursor: pointer; outline: 2px dashed var(--red); outline-offset: 2px; }
+    #delete-btn { color: var(--red); }
+
+    /* ── EDIT MODAL ── */
+    #edit-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+      z-index: 700; display: flex; align-items: flex-start;
+      justify-content: center; padding-top: 60px;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    #edit-modal-backdrop.show { opacity: 1; pointer-events: all; }
+    #edit-modal-backdrop .modal {
+      border-radius: 24px; width: calc(100% - 32px); max-width: 480px;
+      max-height: 80vh; overflow-y: auto;
+      transform: translateY(-20px); transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+    }
+    #edit-modal-backdrop.show .modal { transform: translateY(0); }
+    .edit-photo-zone {
+      width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+      border: 1.5px dashed #d8d8d8; background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; overflow: hidden; -webkit-tap-highlight-color: transparent;
+      transition: transform 0.13s, border-color 0.13s;
+    }
+    .edit-photo-zone:active { transform: scale(0.93); }
+    .edit-photo-zone.has-photo { border-style: solid; border-color: #e8e8e8; }
+    .edit-photo-zone img, .edit-photo-zone video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* ── DELETE CONFIRM MODAL ── */
+    #delete-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+      z-index: 100; display: flex; align-items: flex-start;
+      justify-content: center; padding-top: 60px;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    #delete-modal-backdrop.show { opacity: 1; pointer-events: all; }
+    #delete-modal-backdrop .modal {
+      border-radius: 24px; width: calc(100% - 32px); max-width: 480px;
+      transform: translateY(-20px); transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+    }
+    #delete-modal-backdrop.show .modal { transform: translateY(0); }
+    .delete-confirm-text { font-size: 14px; color: #555; margin-bottom: 18px; line-height: 1.5; }
+    .delete-task-name { font-weight: 600; color: var(--text); }
+    .delete-btn-row { display: flex; gap: 10px; }
+    .delete-cancel-btn {
+      flex: 1; padding: 14px; border-radius: 50px;
+      border: 1.5px solid #e8e8e8; background: var(--surface);
+      font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
+      cursor: pointer; color: var(--muted); transition: transform 0.12s;
+    }
+    .delete-cancel-btn:active { transform: scale(0.97); }
+    .delete-confirm-btn {
+      flex: 1; padding: 14px; border-radius: 50px; background: var(--red);
+      border: none; color: #fff; font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 500; cursor: pointer; transition: transform 0.12s;
+    }
+    .delete-confirm-btn:active { transform: scale(0.97); }
+
+    /* ── CONCLUIR/REMARCAR MODAL ── */
+    #complete-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+      z-index: 700; display: flex; align-items: flex-start;
+      justify-content: center; padding-top: 60px;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    #complete-modal-backdrop.show { opacity: 1; pointer-events: all; }
+    #complete-modal-backdrop .modal {
+      border-radius: 24px; width: calc(100% - 32px); max-width: 480px;
+      transform: translateY(-20px); transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+    }
+    #complete-modal-backdrop.show .modal { transform: translateY(0); }
+    /* ── REMARCAR (só calendário) ── */
+    #reschedule-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+      z-index: 700; display: flex; align-items: flex-start;
+      justify-content: center; padding-top: 60px;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    #reschedule-modal-backdrop.show { opacity: 1; pointer-events: all; }
+    #reschedule-modal-backdrop .modal {
+      border-radius: 24px; width: calc(100% - 32px); max-width: 480px;
+      transform: translateY(-20px); transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+    }
+    #reschedule-modal-backdrop.show .modal { transform: translateY(0); }
+    .resched-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .resched-old { font-size: 14px; font-weight: 600; color: #555; margin-bottom: 16px; }
+    .resched-old.replaced { text-decoration: line-through; color: #aaa; }
+    .resched-new { font-size: 14px; font-weight: 700; color: var(--green); margin-top: 10px; min-height: 18px; }
+    #reschedule-confirm-btn:disabled { opacity: 0.35; cursor: default; }
+    #reschedule-date-input {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #e8e8e8; border-radius: 12px;
+      font-family: 'DM Sans', sans-serif; font-size: 16px;
+      background: var(--bg); color: var(--text); outline: none;
+    }
+    .complete-confirm-text { font-size: 14px; color: #555; margin-bottom: 18px; line-height: 1.5; }
+    .complete-task-name { font-weight: 600; color: var(--text); }
+    .complete-btn-row { display: flex; gap: 10px; }
+    .complete-reschedule-btn {
+      flex: 1; padding: 14px; border-radius: 50px;
+      border: 1.5px solid #e8e8e8; background: var(--surface);
+      font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
+      cursor: pointer; color: var(--text); transition: transform 0.12s;
+    }
+    .complete-reschedule-btn:active { transform: scale(0.97); }
+    .complete-confirm-btn {
+      flex: 1; padding: 14px; border-radius: 50px; background: var(--green);
+      border: none; color: #fff; font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 500; cursor: pointer; transition: transform 0.12s;
+    }
+    .complete-confirm-btn:active { transform: scale(0.97); }
+
+
+    /* ── TABS ── */
+    .tabs-scroll { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+    .tabs-scroll::-webkit-scrollbar { display: none; }
+    .tab {
+      flex-shrink: 0; padding: 7px 16px; border-radius: 50px;
+      font-size: 13px; font-weight: 500; background: transparent;
+      border: 1.5px solid #e0e0e0; color: var(--muted);
+      cursor: pointer; transition: all 0.18s; white-space: nowrap;
+    }
+    .tab.active { background: var(--text); border-color: var(--text); color: #fff; }
+    .tab-add {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+      border: 1.5px dashed #c8c8c8; background: transparent; color: var(--muted);
+      font-size: 20px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .tab-add:active { transform: scale(0.9); }
+    /* ── CAT AVATARS ── */
+    .cat-avatars {
+      display: flex; gap: 23px; padding: 10px 4px 0;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .cat-avatars::-webkit-scrollbar { display: none; }
+    .cat-avatar-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; flex-shrink: 0; cursor: pointer;
+    }
+    .cat-avatar {
+      width: 74px; height: 74px; border-radius: 50%;
+      background: #e8e8e8;
+      border: 2.5px solid #e0e0e0;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.18s, transform 0.13s;
+      position: relative;
+    }
+    .cat-avatar-wrap.active .cat-avatar {
+      border-color: transparent;
+    }
+    .cat-avatar-wrap.active {
+      position: relative;
+    }
+    .cat-avatar-wrap.active::before {
+      content: '';
+      position: absolute;
+      top: -5px; left: 50%;
+      transform: translateX(-50%);
+      width: calc(74px + 10px);
+      height: calc(74px + 10px);
+      border: 3px solid #6c3fc5;
+      border-radius: 16px;
+      pointer-events: none;
+      box-shadow: 0 0 8px rgba(108,63,197,0.5);
+    }
+    .cat-avatar:active { transform: scale(0.91); }
+    .cat-avatar img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .cat-avatar-ghost {
+      opacity: 0.35;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cat-avatar-label {
+      font-size: 13px; font-weight: 700; color: #fff;
+      max-width: 88px; text-align: center;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      background: #111; border-radius: 6px;
+      padding: 3px 8px; letter-spacing: 0.04em;
+    }
+    .cat-avatar-wrap.active .cat-avatar-label { background: #000; color: #fff; }
+
+    /* ── PROGRESS BAR ── */
+    .cat-progress-wrap {
+      width: 74px; height: 5px; border-radius: 3px;
+      background: #e8e8e8; overflow: hidden; margin-top: 2px;
+    }
+    .cat-progress-bar {
+      height: 100%; border-radius: 3px;
+      transition: width 0.4s ease, background-color 0.4s ease;
+    }
+
+    .dots { display: flex; gap: 5px; justify-content: center; padding: 10px 0 6px; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; background: #d8d8d8; transition: all 0.2s; }
+    .dot.active { background: var(--text); width: 16px; border-radius: 3px; }
+
+    /* ── CAROUSEL ── */
+    .carousel-outer { flex: 1; min-height: 0; overflow: hidden; }
+    .carousel-track {
+      display: flex; height: 100%;
+      transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+      will-change: transform;
+    }
+    .page {
+      flex-shrink: 0; width: 100vw; height: 100%;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 28px 20px 150px;
+      display: block;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .page .task { margin-bottom: 10px; }
+    .page::-webkit-scrollbar { display: none; }
+
+    /* ── TASK ── */
+    .task {
+      border-radius: 14px;
+      border: 1.5px solid var(--red-border);
+      background: var(--red-soft);
+      user-select: none; -webkit-user-select: none;
+      transition: background 0.22s, border-color 0.22s;
+      animation: slideIn 0.2s ease;
+      overflow: hidden;
+      position: relative;
+    }
+    .task.done { background: var(--green-soft); border-color: var(--green-border); }
+
+    /* last action highlights */
+    .task.last-done {
+      border-color: #1a7a40;
+      border-width: 2.5px;
+      background: #e4f7ec;
+    }
+    .task.last-done .task-label { color: #1a7a40; opacity: 1; }
+    .task.last-done .task-check { background: #1a7a40; border-color: #1a7a40; }
+
+    .task.last-undone {
+      border-color: #b81c1c;
+      border-width: 2.5px;
+      background: #ffffff;
+    }
+    .task.last-undone .task-label { color: #b81c1c; }
+    .task.last-undone .task-check { border-color: #b81c1c; }
+
+    /* ── TASK MAIN ROW ── */
+    .task-main {
+      display: flex; align-items: center;
+      gap: 14px; padding: 15px 17px;
+      /* This whole row is the "text area" click target */
+      cursor: pointer;
+    }
+    .task-check {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid var(--red); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.22s, border-color 0.22s;
+      pointer-events: none; /* handled by parent */
+    }
+    .task.done .task-check { background: var(--green); border-color: var(--green); }
+    .task-check svg { opacity: 0; transform: scale(0.5); transition: opacity 0.2s, transform 0.2s; }
+    .task.done .task-check svg { opacity: 1; transform: scale(1); }
+    .task-label {
+      font-size: 15px; font-weight: 400; color: var(--red);
+      transition: color 0.22s; flex: 1; line-height: 1.4;
+      pointer-events: none; white-space: pre-wrap;
+    }
+    .heart-secret {
+      display: block;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.3s ease;
+      opacity: 0;
+    }
+    .task.done .heart-secret,
+    .hearts-revealed .heart-secret {
+      max-height: 500px;
+      opacity: 1;
+    }
+    .task-link {
+      color: #2563eb; text-decoration: underline;
+      text-underline-offset: 2px; word-break: break-all;
+      display: inline-block; max-width: 100%;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      vertical-align: bottom; pointer-events: all;
+    }
+    .task.done .task-link { color: var(--green); }
+    .task.done .task-label { color: var(--green); text-decoration: line-through; opacity: 0.7; }
+
+    /* ── PHOTO ICON ZONE (always visible, right side) ── */
+    .task-photo-zone {
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 52px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      z-index: 2;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* always add right padding so text never overlaps the icon */
+    .task-main { padding-right: 56px; }
+
+    /* ghost icon — no photo yet */
+    .photo-icon-ghost {
+      opacity: 0.13;
+      transition: opacity 0.15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .task-photo-zone:active .photo-icon-ghost { opacity: 0.28; }
+
+    /* thumbnail — has photo */
+    .task-thumb {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 7px rgba(0,0,0,0.16);
+      border: 1.5px solid rgba(255,255,255,0.7);
+      transition: transform 0.13s;
+    }
+    .task-photo-zone:active .task-thumb { transform: scale(0.91); }
+    .task-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* hold ring — anchored to the photo zone */
+    .hold-ring {
+      position: absolute; top: 50%; right: 26px;
+      transform: translate(50%, -50%) scale(0);
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.18);
+      pointer-events: none; opacity: 0;
+    }
+    .hold-ring.go { animation: holdExpand 0.55s ease forwards; }
+    @keyframes holdExpand {
+      0%   { transform: translate(50%,-50%) scale(0.3); opacity: 0.55; }
+      100% { transform: translate(50%,-50%) scale(1.9); opacity: 0; }
+    }
+    #photo-viewer {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s;
+    }
+    #photo-viewer.show { opacity: 1; pointer-events: all; }
+    #photo-viewer img {
+      max-width: 94vw; max-height: 82vh;
+      border-radius: 16px; object-fit: contain;
+      transform: scale(0.88);
+      transition: transform 0.26s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 28px 80px rgba(0,0,0,0.55);
+      display: block;
+    }
+    #photo-viewer.show img { transform: scale(1); }
+    #photo-viewer-close {
+      position: absolute; top: 52px; right: 22px;
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); border: none;
+      color: #fff; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      z-index: 5;
+    }
+    #photo-viewer-delete {
+      position: absolute; top: 52px; right: 68px;
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); border: none;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      z-index: 5;
+    }
+    #photo-viewer-delete:active { background: rgba(232,64,64,0.55); }
+
+    /* hold ring */
+    .hold-ring {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%) scale(0);
+      width: 54px; height: 54px; border-radius: 50%;
+      border: 2.5px solid rgba(0,0,0,0.12);
+      pointer-events: none; opacity: 0;
+    }
+    .hold-ring.go { animation: holdExpand 0.55s ease forwards; }
+    @keyframes holdExpand {
+      0%   { transform: translate(-50%,-50%) scale(0.3); opacity: 0.5; }
+      100% { transform: translate(-50%,-50%) scale(1.8); opacity: 0; }
+    }
+
+    .empty {
+      text-align: center; padding: 50px 20px 0;
+      color: var(--muted); font-size: 14px; font-weight: 300; line-height: 1.7;
+    }
+    .empty-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+
+    /* ── ADD BAR ── */
+    #add-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 14px 20px 32px;
+      background: linear-gradient(to top, var(--bg) 60%, transparent);
+      display: flex; gap: 10px; align-items: center; z-index: 20;
+    }
+    #new-task {
+      flex: 1; background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 20px; padding: 13px 18px;
+      font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--text);
+      outline: none; -webkit-appearance: none; transition: border-color 0.18s;
+      resize: none; overflow-y: hidden; line-height: 1.4; min-height: 48px;
+    }
+    #add-bar { align-items: flex-end; }
+    #new-task::placeholder { color: #c0c0c0; }
+    #new-task:focus { border-color: #c0c0c0; }
+    #add-btn {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--text); border: none; color: #fff; font-size: 26px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: transform 0.12s;
+    }
+    #add-btn:active { transform: scale(0.9); }
+
+    /* ── ADD TASK MODAL ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+      z-index: 100; display: flex; align-items: flex-start;
+      justify-content: center; padding-top: 60px;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    .modal-backdrop.show { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface); border-radius: 24px;
+      padding: 28px 24px 32px; width: calc(100% - 32px); max-width: 480px;
+      transform: translateY(-20px);
+      transition: transform 0.26s cubic-bezier(0.4,0,0.2,1);
+      max-height: 80vh; overflow-y: auto;
+    }
+    .modal-backdrop.show .modal { transform: translateY(0); }
+    .modal h3 { font-family: 'DM Serif Display', serif; font-size: 22px; font-weight: 400; margin-bottom: 18px; }
+    .modal-input {
+      width: 100%; background: var(--bg); border: 1.5px solid #e8e8e8;
+      border-radius: 12px; padding: 13px 16px;
+      font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--text);
+      outline: none; -webkit-appearance: none; margin-bottom: 14px;
+    }
+    .modal-input:focus { border-color: #c0c0c0; }
+    .section-label {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+    }
+    .modal-cats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .modal-cat-chip {
+      padding: 7px 14px; border-radius: 50px; font-size: 13px; font-weight: 500;
+      border: 1.5px solid #e0e0e0; background: transparent; color: var(--muted);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .modal-cat-chip.selected { background: var(--text); border-color: var(--text); color: #fff; }
+    .modal-cat-chip.new-chip { border-style: dashed; color: var(--text); border-color: #c0c0c0; }
+    .new-cat-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .new-cat-input {
+      flex: 1; background: var(--bg); border: 1.5px solid #e8e8e8; border-radius: 12px;
+      padding: 11px 14px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
+      outline: none; -webkit-appearance: none;
+    }
+    .new-cat-input:focus { border-color: #b0b0b0; }
+    .new-cat-ok {
+      padding: 11px 18px; border-radius: 12px; background: var(--text);
+      border: none; color: #fff; font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+    }
+    .modal-confirm {
+      width: 100%; padding: 15px; border-radius: 50px; background: var(--text);
+      border: none; color: #fff; font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 500; cursor: pointer; transition: transform 0.12s;
+    }
+    .modal-confirm:active { transform: scale(0.97); }
+
+    /* ── TIME PICKER ── */
+    .time-toggle-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      padding: 6px 2px; margin-bottom: 8px; text-align: left;
+    }
+    .time-toggle-btn:active { opacity: 0.6; }
+    .time-picker-wrap {
+      display: none; flex-direction: column; gap: 8px;
+      margin-bottom: 14px; margin-top: 2px;
+    }
+    .time-picker-wrap.show { display: flex; }
+    .time-picker-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .time-picker-label {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    .time-picker {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--bg); border: 1.5px solid #e8e8e8;
+      border-radius: 12px; padding: 6px 10px;
+    }
+    .time-scroll-col {
+      flex: 1; height: 80px; overflow-y: scroll;
+      scroll-snap-type: y mandatory; scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .time-scroll-col::-webkit-scrollbar { display: none; }
+    .time-scroll-item {
+      height: 32px; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 600; color: var(--muted);
+      scroll-snap-align: center; cursor: pointer; transition: color 0.15s;
+      padding: 0 4px;
+    }
+    .time-scroll-item.selected { color: var(--text); font-size: 20px; }
+    .time-sep { font-size: 22px; font-weight: 700; color: var(--text); padding: 0 2px; }
+    .time-clear-btn {
+      background: none; border: none; color: var(--muted);
+      font-size: 16px; cursor: pointer; padding: 4px; flex-shrink: 0;
+    }
+    .date-picker-row {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .emoji-quick-row {
+      display: flex; gap: 8px; margin-bottom: 14px;
+    }
+    .emoji-quick-btn {
+      flex: 1; font-size: 20px; padding: 8px 0; border-radius: 12px;
+      border: 1.5px solid #e8e8e8; background: var(--surface);
+      cursor: pointer; transition: all 0.15s; line-height: 1;
+    }
+    .emoji-quick-btn:active { transform: scale(0.9); }
+    .emoji-quick-btn.selected { background: var(--text); border-color: var(--text); }
+    .emoji-quick-row.shake { animation: emoji-shake 0.42s ease; }
+    @keyframes emoji-shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-7px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(3px); }
+    }
+    .date-chip {
+      display: flex; align-items: center; gap: 5px;
+      padding: 7px 14px; border-radius: 50px; font-size: 13px; font-weight: 500;
+      border: 1.5px solid #e0e0e0; background: transparent; color: var(--muted);
+      cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    }
+    .date-chip.selected { background: var(--text); border-color: var(--text); color: #fff; }
+    .date-chip-clear { border-color: #ffd6d6; color: var(--red); }
+    .date-chip-clear.selected { background: var(--red); border-color: var(--red); color: #fff; }
+    .date-preview {
+      font-size: 13px; color: #555; margin-bottom: 14px;
+      padding: 8px 14px; background: #f5f5f5; border-radius: 10px;
+    }
+    /* task com data urgente: borda esquerda + fundo vermelho */
+    .task.urgent, .task.urgent-tomorrow, .task.urgent-future {
+      border-left: 4px solid #e84040;
+      background: #fff0f0;
+      border-color: #ffa3a3;
+    }
+    /* task atrasada: fundo vermelho com listras diagonais amarelas */
+    .task.overdue {
+      border-left: 4px solid #e84040;
+      border-color: #ffa3a3;
+      background: repeating-linear-gradient(
+        -45deg,
+        #fff0f0,
+        #fff0f0 8px,
+        #fff8c0 8px,
+        #fff8c0 16px
+      );
+    }
+    .kanban-card.overdue {
+      border-left: 4px solid #e84040;
+      border-color: #ffa3a3;
+      background: repeating-linear-gradient(
+        -45deg,
+        #fff0f0,
+        #fff0f0 8px,
+        #fff8c0 8px,
+        #fff8c0 16px
+      );
+    }
+    .task-date-badge {
+      display: block; font-size: 13px; font-weight: 700;
+      border-radius: 8px; padding: 4px 14px; margin-bottom: 5px;
+      letter-spacing: 0.02em; text-align: center;
+      min-width: 110px; width: fit-content;
+    }
+    .badge-today    { background: #e84040; color: #fff; }
+    .badge-tomorrow { background: #e84040; color: #fff; }
+    .badge-future   { background: #e84040; color: #fff; }
+    .badge-overdue  { background: #ffd600; color: #7a5a00; }
+
+    #photo-file-input { display: none; }
+
+    /* ── GRADE (fat) MODE ── */
+    .page.fat { gap: 12px; }
+
+    /* task becomes taller — fixed height so the right-side photo can fill it */
+    .page.fat .task { min-height: 90px; }
+
+    /* text row: same as normal, photo zone stays absolutely on the right */
+    /* (no change needed to task-main padding — right padding already set) */
+
+    /* photo zone: same absolute positioning, but taller to fill the whole card */
+    .page.fat .task-photo-zone {
+      width: 90px;  /* wider in fat mode */
+    }
+
+    /* thumbnail grows to fill the whole zone height */
+    .page.fat .task-thumb {
+      width: 80px;
+      height: 70px;
+      border-radius: 10px;
+    }
+
+    /* text row right padding matches wider zone */
+    .page.fat .task-main { padding-right: 100px; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+
+    /* ── DONE DIVIDER ── */
+    .done-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 10px 0 4px;
+      color: var(--text); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .done-divider::before, .done-divider::after {
+      content: ''; flex: 1; height: 2.5px; background: var(--text); border-radius: 2px;
+    }
+    /* ── TOAST ── */
+    #done-toast {
+      position: fixed;
+      bottom: 110px; left: 20px; right: 20px;
+      background: #1a7a40;
+      color: #fff;
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 12px;
+      z-index: 9999;
+      box-shadow: 0 8px 32px rgba(26,122,64,0.35);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.22s, transform 0.22s;
+    }
+    #done-toast.show { opacity: 1; transform: translateY(0); pointer-events: all; }
+    #done-toast .toast-icon {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    #done-toast .toast-text { font-size: 14px; font-weight: 600; line-height: 1.3; flex: 1; }
+    #toast-undo-btn {
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.22);
+      border: 1.5px solid rgba(255,255,255,0.4);
+      color: #fff; border-radius: 50px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 11px; font-weight: 700;
+      padding: 4px 10px; cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #toast-undo-btn:active { background: rgba(255,255,255,0.38); }
+
+    /* ── CAT CONTEXT MENU ── */
+    #cat-menu-backdrop {
+      position: fixed; inset: 0; z-index: 150;
+      background: rgba(0,0,0,0.18);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.18s;
+    }
+    #cat-menu-backdrop.show { opacity: 1; pointer-events: all; }
+    #cat-menu {
+      position: absolute;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+      overflow: hidden;
+      min-width: 180px;
+      transform: scale(0.9);
+      transform-origin: top center;
+      transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), opacity 0.15s;
+      opacity: 0;
+    }
+    #cat-menu-backdrop.show #cat-menu { transform: scale(1); opacity: 1; }
+    .cat-menu-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 15px 20px;
+      font-size: 15px; font-weight: 500;
+      cursor: pointer; color: var(--text);
+      transition: background 0.12s;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .cat-menu-item:active { background: #f5f5f5; }
+    .cat-menu-item.danger { color: #e84040; }
+    .cat-menu-sep { height: 1px; background: #f0f0f0; margin: 0; }
+    /* rename inline input on tab */
+    .tab.renaming { padding: 0; }
+    .tab-rename-input {
+      background: transparent; border: none; outline: none;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+      color: #fff; width: 80px; text-align: center;
+    }
+
+    /* ── KANBAN BUTTON ── */
+    #vista-btn {
+      background: var(--surface); border: 1.5px solid #e8e8e8;
+      border-radius: 50px; padding: 7px 14px;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: pointer; display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: transform 0.12s;
+      color: #7c3aed;
+    }
+    #vista-btn:active { transform: scale(0.93); }
+    #vista-btn.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    /* Oculto a pedido do usuário — mantém a função no código, só some da UI.
+       Para reexibir, remova esta regra. */
+    #vista-btn { display: none !important; }
+
+    /* ── GRID OVERLAY ── */
+    #vista-overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      z-index: 500; display: flex; flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.34s cubic-bezier(0.4,0,0.2,1);
+    }
+    #vista-overlay.show { transform: translateY(0); }
+
+    #vista-header {
+      padding: 52px 16px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    #vista-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 24px; font-weight: 400; letter-spacing: -0.5px;
+    }
+    #vista-header-right { display: flex; align-items: center; gap: 8px; }
+    #vista-close {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #f0eeeb; border: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 15px; color: var(--muted);
+      transition: transform 0.12s;
+    }
+    #vista-close:active { transform: scale(0.9); }
+    #vista-total-badge {
+      font-size: 10px; font-weight: 700; padding: 3px 10px;
+      border-radius: 50px; background: #f0eeeb;
+      color: var(--muted); letter-spacing: 0.04em;
+    }
+
+    /* ── GRID INLINE (home screen) ── */
+    #grid-home {
+      flex: 1; min-height: 0;
+      overflow-y: auto; overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    #grid-home::-webkit-scrollbar { display: none; }
+    /* inner wrapper for the two columns */
+    #grid-home-inner {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      padding: 2px 10px 180px;
+      gap: 10px;
+      min-height: 100%;
+    }
+    .grid-col {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+    /* Dead zone — fixed strip over the center gap, zero layout impact */
+    .grid-dead-zone {
+      position: fixed;
+      top: 0; bottom: 0;
+      width: 60px;
+      z-index: 50;
+      touch-action: pan-y;
+    }
+
+    /* ── CATEGORY CARD ── */
+    .kanban-col {
+      background: var(--surface);
+      border: 1.5px solid #ebebeb;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: border-color 0.22s, box-shadow 0.22s;
+    }
+    .kanban-col.unlocked-col {
+      border: 2.5px solid #c8960a;
+      box-shadow: 0 0 0 1px rgba(200,150,10,0.18);
+    }
+    /* Recolhida: só a barra preta com o nome fica visível */
+    .kanban-col.collapsed .kanban-col-body,
+    .kanban-col.collapsed .kanban-col-avatar-wrap,
+    .kanban-col.collapsed .kanban-col-controls-row,
+    .kanban-col.collapsed .kanban-head-prog-wrap {
+      display: none !important;
+    }
+    .kanban-col.collapsed .kanban-col-head {
+      padding: 16px 14px;
+      border-bottom: none;
+    }
+    .kanban-col.collapsed .kanban-col-name-row {
+      margin-bottom: 0;
+    }
+
+    /* Header — tappable, opens fullscreen */
+    .kanban-col-head {
+      padding: 40px 14px 12px;
+      border-bottom: 1.5px solid #111;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      background: #111;
+      transition: background 0.22s, border-color 0.22s, box-shadow 0.22s;
+      position: relative;
+    }
+    .kanban-col-head:active { filter: brightness(0.85); }
+    .kanban-col-head.unlocked-head {
+      background: linear-gradient(135deg, #2a1f00 0%, #1a1200 60%, #3a2a00 100%);
+      border-bottom: 3px solid #c8960a;
+      box-shadow: inset 0 -3px 0 rgba(200,150,10,0.3);
+    }
+    .kanban-col-head.unlocked-head .kanban-col-arrow { color: #f5c842; }
+    .kanban-col-name { color: #fff !important; }
+
+    .kanban-col-name-row {
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 12px;
+    }
+    .kanban-col-name {
+      font-size: 20px; font-weight: 700; letter-spacing: 0.03em;
+      color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      text-align: center; max-width: 100%;
+    }
+    .kanban-col-arrow {
+      position: absolute; top: 12px; right: 12px;
+      font-size: 12px; color: rgba(255,255,255,0.7);
+      width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kanban-col-controls-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px; margin-bottom: 10px;
+    }
+    .kanban-col-add-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,255,255,0.18); border: 1.5px solid rgba(255,255,255,0.35);
+      color: #fff; font-size: 20px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+      transition: background 0.13s, transform 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .kanban-col-add-btn:active { background: rgba(255,255,255,0.35); transform: scale(0.88); }
+    .kanban-col-play-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,255,255,0.18); border: 1.5px solid rgba(255,255,255,0.35);
+      color: #fff; font-size: 15px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+      transition: background 0.13s, transform 0.12s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .kanban-col-play-btn:active { background: rgba(255,255,255,0.35); transform: scale(0.88); }
+
+    /* ── PLAY MODE: tarefa em tela cheia, uma por vez ── */
+    #play-modal-backdrop {
+      position: fixed; inset: 0; background: var(--text);
+      z-index: 300; display: flex; flex-direction: column;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s;
+    }
+    #play-modal-backdrop.show { opacity: 1; pointer-events: all; }
+    .play-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 52px 24px 12px; flex-shrink: 0;
+    }
+    .play-cat-name {
+      font-family: 'DM Serif Display', serif; font-size: 20px;
+      color: #fff; letter-spacing: -0.3px;
+    }
+    .play-close-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.25);
+      color: #fff; font-size: 16px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .play-close-btn:active { transform: scale(0.9); }
+    .play-progress-wrap {
+      padding: 0 24px 20px; flex-shrink: 0;
+    }
+    .play-progress-track {
+      width: 100%; height: 6px; border-radius: 6px;
+      background: rgba(255,255,255,0.14); overflow: hidden;
+    }
+    .play-progress-fill {
+      height: 100%; border-radius: 6px; background: var(--green);
+      transition: width 0.3s ease;
+    }
+    .play-progress-label {
+      margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.5);
+      letter-spacing: 0.06em; text-align: center;
+    }
+    .play-body {
+      flex: 1; display: flex; flex-direction: column;
+      overflow: hidden; position: relative;
+    }
+    .play-tap-zone {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 24px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+      position: relative;
+    }
+    .play-tap-zone::after {
+      content: ''; position: absolute; inset: 0;
+      background: var(--green); opacity: 0; pointer-events: none;
+    }
+    .play-tap-zone.flash-green::after {
+      animation: playFlashGreen 0.38s ease;
+    }
+    @keyframes playFlashGreen {
+      0% { opacity: 0.85; }
+      100% { opacity: 0; }
+    }
+    .play-task-card {
+      width: 100%; max-width: 520px; text-align: center;
+      pointer-events: none;
+      display: flex; flex-direction: column; align-items: center; gap: 24px;
+    }
+    .play-task-photo {
+      width: 120px; height: 120px; border-radius: 24px; overflow: hidden;
+      flex-shrink: 0; box-shadow: 0 8px 28px rgba(0,0,0,0.3);
+    }
+    .play-task-photo img, .play-task-photo video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .play-task-text {
+      font-family: 'DM Sans', sans-serif; font-weight: 500;
+      font-size: 30px; line-height: 1.35; color: #fff;
+      word-break: break-word;
+    }
+    .play-task-date {
+      font-size: 13px; font-weight: 700; letter-spacing: 0.1em;
+      padding: 6px 16px; border-radius: 50px;
+      background: rgba(255,255,255,0.14); color: #fff;
+    }
+    .play-task-date.is-today { background: rgba(232,64,64,0.25); color: #ff9a9a; }
+    .play-end-overlay {
+      position: absolute; inset: 0; z-index: 5;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.45); padding: 24px;
+      animation: playEnter 0.28s ease;
+    }
+    .play-end-card {
+      width: 100%; max-width: 360px; background: var(--surface);
+      border-radius: 24px; padding: 28px 22px 22px; text-align: center;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    .play-end-title {
+      font-family: 'DM Serif Display', serif; font-size: 30px;
+      color: var(--text); margin-bottom: 6px;
+    }
+    .play-end-sub { font-size: 14px; color: #777; line-height: 1.5; margin-bottom: 20px; }
+    .play-task-hint {
+      font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 0.08em;
+    }
+    .play-task-card.completing { animation: playComplete 0.4s ease forwards; }
+    @keyframes playComplete {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.85); }
+    }
+    .play-task-card.entering { animation: playEnter 0.32s ease; }
+    @keyframes playEnter {
+      0% { opacity: 0; transform: translateY(14px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    .play-skip-bar {
+      flex-shrink: 0; margin: 0 24px 32px; padding: 16px;
+      border-radius: 16px; text-align: center;
+      background: rgba(232,64,64,0.14); border: 1.5px solid rgba(232,64,64,0.4);
+      color: #ff8080; font-family: 'DM Sans', sans-serif; font-size: 13px;
+      font-weight: 600; letter-spacing: 0.06em;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: transform 0.12s, background 0.12s;
+    }
+    .play-skip-bar:active { transform: scale(0.97); background: rgba(232,64,64,0.24); }
+    .play-empty {
+      color: rgba(255,255,255,0.6); font-size: 16px; text-align: center;
+      padding: 24px; line-height: 1.6;
+    }
+    .play-empty-emoji { font-size: 48px; display: block; margin-bottom: 16px; }
+
+    /* Avatar da categoria — cantinho superior esquerdo do cabeçalho */
+    .kanban-col-avatar-wrap {
+      position: absolute; top: 10px; left: 12px;
+    }
+    .kanban-col-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,0.14);
+      border: 1.5px solid rgba(255,255,255,0.3);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .kanban-col-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .kanban-col-avatar:active { transform: scale(0.91); }
+
+    /* progress bar */
+    .kanban-head-prog-wrap {
+      height: 8px; border-radius: 4px; background: rgba(255,255,255,0.35); overflow: hidden; margin-bottom: 8px;
+    }
+    .kanban-head-prog-bar { height: 100%; border-radius: 2px; transition: width 0.4s; }
+
+    .kanban-col-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+    .kanban-badge {
+      font-size: 9px; font-weight: 700; padding: 2px 8px;
+      border-radius: 50px; letter-spacing: 0.03em;
+    }
+    .kanban-badge.pending { background: #ffd6d6; color: var(--red); }
+    .kanban-badge.done-b  { background: #c3f0d5; color: var(--green); }
+
+    /* task list */
+
+    /* ── MINI TASK CARD ── */
+    .kanban-card {
+      background: #fafafa; border: 1.5px solid #efefef;
+      border-radius: 11px; padding: 10px 11px;
+      display: flex; align-items: flex-start; gap: 8px;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, border-color 0.15s;
+      user-select: none; -webkit-user-select: none;
+      height: auto; box-sizing: border-box;
+    }
+    .kanban-card:active { background: #efefef; }
+    .kanban-col-body .kanban-card:first-child {
+      border: 1.5px solid #aaa;
+    }
+    .kanban-col-body .kanban-card:first-child.is-done {
+      border: 1.5px solid var(--green);
+    }
+    .kanban-card.is-done { background: var(--green-soft); border-color: var(--green-border); opacity: 0.65; }
+    .kanban-card.urgent, .kanban-card.urgent-tomorrow, .kanban-card.urgent-future { background: #fff0f0; border-color: #ffa3a3; border-left: 4px solid var(--red); }
+    .kanban-card.popping { animation: kPop 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+    @keyframes kPop { 0%{transform:scale(1)} 50%{transform:scale(1.04)} 100%{transform:scale(1)} }
+    @keyframes kFlash {
+      0%   { background: #fafafa; }
+      20%  { background: #c3f0d5; }
+      40%  { background: #fafafa; }
+      60%  { background: #c3f0d5; }
+      80%  { background: #fafafa; }
+      100% { background: #fafafa; }
+    }
+    .kanban-card.flashing { animation: kFlash 0.7s ease; }
+    .kanban-card.completing {
+      background: var(--green-soft) !important;
+      border-color: var(--green-border) !important;
+      opacity: 0.85;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    }
+    .kanban-card.completing .kanban-check {
+      background: var(--green) !important;
+      border-color: var(--green) !important;
+    }
+    .kanban-card.completing .kanban-check svg { opacity: 1 !important; transform: scale(1) !important; }
+    .kanban-card.completing .kanban-text { color: var(--green) !important; }
+
+    .kanban-check {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      border: 1.8px solid var(--red);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, border-color 0.15s; margin-top: 1px;
+    }
+    .kanban-card.is-done .kanban-check { background: var(--green); border-color: var(--green); }
+    .kanban-check svg { opacity: 0; transform: scale(0.3); transition: opacity 0.15s, transform 0.15s; }
+    .kanban-card.is-done .kanban-check svg { opacity: 1; transform: scale(1); }
+
+    .kanban-text {
+      flex: 1; font-size: 12px; line-height: 1.4; color: var(--red);
+      word-break: break-word; transition: color 0.15s; white-space: pre-wrap;
+    }
+    .kanban-card.is-done .kanban-text { color: var(--green); text-decoration: line-through; opacity: 0.75; }
+
+    /* ── Miniatura de foto (só aparece se a tarefa já tiver foto) — abaixo do texto, maior ── */
+    .kanban-card { flex-wrap: wrap; }
+    .kanban-photo-zone {
+      flex: 1 0 100%;
+      width: 100%;
+      margin-top: 8px;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .kanban-photo-thumb {
+      width: 100%; height: 150px; border-radius: 10px; overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+      border: 1.3px solid rgba(255,255,255,0.7);
+      transition: transform 0.13s;
+    }
+    .kanban-photo-zone:active .kanban-photo-thumb { transform: scale(0.97); }
+    .kanban-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .kanban-date-badge {
+      display: block; font-size: 8px; font-weight: 700;
+      border-radius: 4px; padding: 1px 5px; margin-bottom: 3px; width: fit-content;
+    }
+    .kanban-col-body {
+      padding: 9px 9px 4px;
+      display: flex; flex-direction: column; gap: 7px;
+      max-height: 280px;
+      overflow-y: hidden;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+    }
+    .kanban-col-body::-webkit-scrollbar { display: none; }
+    .kanban-col-body.unlocked { overflow-y: auto; }
+    .kanban-col-body.expanded { max-height: 2000px; overflow-y: auto; }
+
+    .kanban-collapse-btn {
+      display: none;
+      width: 100%;
+      text-align: center;
+      padding: 10px 0 6px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      border-top: 1.5px solid #f0f0f0;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 18px;
+      transition: opacity 0.15s;
+    }
+    .kanban-collapse-btn:active { opacity: 0.5; }
+    .kanban-col-body.expanded .kanban-collapse-btn { display: block; }
+
+    /* ── CATEGORY FULLSCREEN ── */
+    #cat-fullscreen {
+      position: fixed; inset: 0; background: var(--bg);
+      z-index: 600; display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    }
+    #cat-fullscreen.show { transform: translateX(0); }
+
+    #cat-fs-header {
+      padding: 52px 18px 14px;
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0; border-bottom: 1.5px solid #eee;
+    }
+    #cat-fs-back {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #f0eeeb; border: none; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; color: var(--muted);
+      transition: transform 0.12s;
+    }
+    #cat-fs-back:active { transform: scale(0.9); }
+    #cat-fs-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 22px; font-weight: 400; flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #cat-fs-badge {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      letter-spacing: 0.04em; flex-shrink: 0;
+    }
+
+    #cat-fs-list {
+      flex: 1; overflow-y: auto; padding: 12px 14px 120px;
+      scrollbar-width: none;
+    }
+    #cat-fs-list::-webkit-scrollbar { display: none; }
+
+    /* fullscreen cards — reuse .kanban-card but bigger */
+    #cat-fs-list .kanban-card { padding: 12px 14px; margin-bottom: 7px; border-radius: 12px; }
+    #cat-fs-list .kanban-check { width: 20px; height: 20px; }
+    #cat-fs-list .kanban-photo-thumb { height: 190px; }
+    #cat-fs-list .kanban-text { font-size: 14px; line-height: 1.4; }
+
+    .cat-fs-done-sep {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--green);
+      padding: 10px 2px 6px; display: flex; align-items: center; gap: 6px;
+    }
+    .cat-fs-done-sep::after { content:''; flex:1; height:1px; background:#c3f0d5; border-radius:1px; }
+
+    /* ── MENU OCULTO AO INICIAR (toque no fundo alterna) ── */
+    body.menu-hidden .menu-extra { display: none !important; }
+    /* ── NEGRITO GERAL EM TUDO ── */
+    body, body * {
+      font-weight: 700 !important;
+    }
+  </style>
+</head>
+<body class="menu-hidden">
+<div class="layout">
+  <header>
+    <div class="header-row">
+      <div></div>
+      <button id="today-display-btn"></button>
+    </div>
+    <div class="header-row">
+      <div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        <button id="edit-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Editar
+        </button>
+        <button id="delete-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Excluir
+        </button>
+        <button id="cat-move-left-btn" class="menu-extra" title="Mover categoria atual para trás">⏪</button>
+        <button id="cat-move-right-btn" class="menu-extra" title="Mover categoria atual para frente">⏩</button>
+        <button id="undo-btn" class="menu-extra" disabled>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13C5.33 7.67 11.5 4 18 6a9 9 0 0 1 3 16.5"/></svg>
+          Desfazer
+        </button>
+        <button id="export-btn" class="menu-extra">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Exportar
+        </button>
+        <div class="menu-extra" style="position:relative;">
+          <button id="emoji-sort-btn">🌍</button>
+          <div id="emoji-sort-panel">
+            <div style="display:flex;gap:8px;">
+              <button class="emoji-sort-chip" data-emoji="🌍">🌍</button>
+              <button class="emoji-sort-chip" data-emoji="📱">📱</button>
+              <button class="emoji-sort-chip" data-emoji="🏠">🏠</button>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="emoji-sort-chip" data-emoji="🎒">🎒</button>
+              <button class="emoji-sort-chip" data-emoji="📅" id="date-sort-chip">📅</button>
+              <button class="emoji-sort-chip" id="fix-sort-chip" style="display:none"></button>
+            </div>
+          </div>
+        </div>
+        <button id="emoji-filter-btn" class="menu-extra">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Filtrar
+        </button>
+        <button id="import-btn" class="menu-extra">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 16 12 21 17 16"/><line x1="12" y1="21" x2="12" y2="9"/></svg>
+          Importar
+        </button>
+        <button id="grade-btn" class="menu-extra">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>
+          Grade
+        </button>
+        <button id="vista-btn" class="menu-extra">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+            <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          <span>Categorias</span>
+        </button>
+        <button id="clear-btn" class="menu-extra">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.51"/>
+          </svg>
+          Limpar
+        </button>
+        <button id="search-btn" class="menu-extra">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Buscar
+        </button>
+      </div>
+    </div>
+    <div class="tabs-scroll" id="tabs-scroll" style="display:none"></div>
+    <div class="cat-avatars" id="cat-avatars"></div>
+    <div class="dots" id="dots"></div>
+  </header>
+
+  <!-- SEARCH BAR -->
+  <div id="search-bar" style="display:none; padding: 8px 16px 4px; position:relative;">
+    <input id="search-input" type="text" placeholder="Buscar tarefas…" autocomplete="off" spellcheck="false"
+      style="width:100%; padding:11px 40px 11px 16px; border-radius:50px; border:1.5px solid #e8e8e8;
+             font-family:'DM Sans',sans-serif; font-size:15px; background:var(--surface);
+             color:var(--text); outline:none; box-sizing:border-box;" />
+    <button id="search-clear-btn" style="position:absolute; right:26px; top:50%; transform:translateY(-50%);
+      background:none; border:none; font-size:18px; color:var(--muted); cursor:pointer; line-height:1;">✕</button>
+  </div>
+
+  <div class="carousel-outer" id="carousel-outer" style="display:none">
+    <div class="carousel-track" id="carousel-track"></div>
+  </div>
+
+  <div id="grid-home"></div>
+</div>
+
+<div id="add-bar">
+  <textarea id="new-task" placeholder="Nova tarefa…" autocomplete="off" spellcheck="false" rows="1"></textarea>
+  <button id="add-btn">+</button>
+</div>
+
+<input type="file" id="avatar-file-input" accept="image/*" />
+
+<!-- EDIT TASK MODAL -->
+<div id="edit-modal-backdrop">
+  <div class="modal">
+    <h3>Editar tarefa</h3>
+    <textarea class="modal-input" id="edit-task-in" placeholder="Descrição da tarefa…" autocomplete="off" spellcheck="false" style="resize:none;overflow-y:hidden;min-height:48px;line-height:1.4;"></textarea>
+
+    <div class="section-label" style="margin-top:4px;">Foto</div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+      <div id="edit-photo-zone" class="edit-photo-zone"></div>
+      <button id="edit-photo-remove-btn" type="button" style="display:none;background:none;border:none;color:var(--red);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;padding:6px 4px;">✕ Remover foto</button>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">Emoji rápido</div>
+    <div class="emoji-quick-row" id="edit-emoji-quick-row">
+      <button class="emoji-quick-btn" data-emoji="📅" type="button">📅</button>
+      <button class="emoji-quick-btn" data-emoji="🌍" type="button">🌍</button>
+      <button class="emoji-quick-btn" data-emoji="📱" type="button">📱</button>
+      <button class="emoji-quick-btn" data-emoji="🎒" type="button">🎒</button>
+      <button class="emoji-quick-btn" data-emoji="🏠" type="button">🏠</button>
+    </div>
+    <div class="section-label" style="margin-top:4px;">Data <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0b0b0;font-size:11px;">(opcional)</span></div>
+    <div class="date-picker-row">
+      <button class="date-chip" id="edit-date-chip-today">Hoje</button>
+      <button class="date-chip" id="edit-date-chip-tomorrow">Amanhã</button>
+      <button class="date-chip" id="edit-date-chip-custom">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Outra data
+      </button>
+      <button class="date-chip date-chip-clear" id="edit-date-chip-clear" style="display:none">✕ Limpar</button>
+    </div>
+    <input type="date" id="edit-date-input" style="display:none; width:100%; padding:10px 14px; border:1.5px solid #e8e8e8; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:15px; margin-bottom:14px; background:var(--bg); color:var(--text); outline:none;" />
+    <button type="button" class="time-toggle-btn" id="edit-time-toggle" style="display:none;">+ Adicionar horário</button>
+    <div class="time-picker-wrap" id="edit-time-wrap">
+      <div class="time-picker-header">
+        <span class="time-picker-label section-label" style="margin-bottom:0;">HORÁRIO</span>
+        <button class="time-clear-btn" id="edit-time-clear">✕ LIMPAR</button>
+      </div>
+      <div class="time-picker">
+        <div class="time-scroll-col" id="edit-hour-col"></div>
+        <div class="time-sep">:</div>
+        <div class="time-scroll-col" id="edit-min-col"></div>
+      </div>
+    </div>
+    <div id="edit-date-preview" class="date-preview" style="display:none;"></div>
+    <button id="edit-pin-btn" onclick="event.preventDefault()" style="
+      width:100%; margin-bottom:12px; padding:11px; border-radius:14px;
+      border:1.5px solid #e8e8e8; background:var(--surface);
+      font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500;
+      color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:8px; justify-content:center;
+      transition: all 0.18s;">📌 Fixar no topo</button>
+    <button class="modal-confirm" id="edit-confirm-btn">Salvar</button>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div id="delete-modal-backdrop">
+  <div class="modal">
+    <h3>Excluir tarefa</h3>
+    <p class="delete-confirm-text">Tem certeza que deseja excluir:<br><span class="delete-task-name" id="delete-task-name"></span></p>
+    <div class="delete-btn-row">
+      <button class="delete-cancel-btn" id="delete-cancel-btn">Cancelar</button>
+      <button class="delete-confirm-btn" id="delete-confirm-btn">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div id="complete-modal-backdrop">
+  <div class="modal">
+    <h3>Concluir tarefa</h3>
+    <p class="complete-confirm-text"><span class="complete-task-name" id="complete-task-name"></span></p>
+    <div class="complete-btn-row">
+      <button class="complete-reschedule-btn" id="complete-reschedule-btn">Remarcar</button>
+      <button class="complete-confirm-btn" id="complete-confirm-btn">Concluir</button>
+    </div>
+  </div>
+</div>
+
+<div id="reschedule-modal-backdrop">
+  <div class="modal">
+    <h3>Remarcar para quando?</h3>
+    <div class="resched-label">Data antiga</div>
+    <div class="resched-old" id="reschedule-old"></div>
+    <div class="resched-label">Nova data</div>
+    <input type="date" id="reschedule-date-input" />
+    <div class="resched-new" id="reschedule-new"></div>
+    <button class="complete-confirm-btn" id="reschedule-confirm-btn" style="width:100%;margin-top:14px;">Remarcar</button>
+  </div>
+</div>
+
+<!-- FILTRAR POR EMOJI -->
+<div id="emoji-filter-modal-backdrop">
+  <div class="modal">
+    <h3>Filtrar por emoji</h3>
+    <div class="filter-emoji-row">
+      <button class="filter-emoji-big" data-emoji="📅">📅</button>
+      <button class="filter-emoji-big" data-emoji="🌍">🌍</button>
+      <button class="filter-emoji-big" data-emoji="📱">📱</button>
+      <button class="filter-emoji-big" data-emoji="🎒">🎒</button>
+      <button class="filter-emoji-big" data-emoji="🏠">🏠</button>
+    </div>
+    <div class="filter-results-label" id="filter-results-label"></div>
+    <div class="filter-results-list" id="filter-results-list"></div>
+  </div>
+</div>
+
+<!-- PLAY MODE MODAL -->
+<div id="play-modal-backdrop">
+  <div class="play-top">
+    <div class="play-cat-name" id="play-cat-name"></div>
+    <button class="play-close-btn" id="play-close-btn">✕</button>
+  </div>
+  <div class="play-progress-wrap">
+    <div class="play-progress-track"><div class="play-progress-fill" id="play-progress-fill"></div></div>
+    <div class="play-progress-label" id="play-progress-label"></div>
+  </div>
+  <div class="play-body" id="play-body"></div>
+</div>
+
+<!-- ADD TASK MODAL -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">Adicionar tarefa</h3>
+    <textarea class="modal-input" id="modal-task-in" placeholder="Descrição da tarefa…" autocomplete="off" spellcheck="false" rows="1" style="resize:none;overflow-y:hidden;min-height:48px;line-height:1.4;"></textarea>
+    <div class="section-label" id="cat-label">Categoria</div>
+    <div class="modal-cats" id="modal-cats"></div>
+    <div class="new-cat-row" id="new-cat-row" style="display:none">
+      <input class="new-cat-input" id="new-cat-in" placeholder="Nome da categoria…" />
+      <button class="new-cat-ok" id="new-cat-ok">OK</button>
+    </div>
+    <div class="section-label" style="margin-top:4px;">Emoji rápido</div>
+    <div class="emoji-quick-row" id="modal-emoji-quick-row">
+      <button class="emoji-quick-btn" data-emoji="📅" type="button">📅</button>
+      <button class="emoji-quick-btn" data-emoji="🌍" type="button">🌍</button>
+      <button class="emoji-quick-btn" data-emoji="📱" type="button">📱</button>
+      <button class="emoji-quick-btn" data-emoji="🎒" type="button">🎒</button>
+      <button class="emoji-quick-btn" data-emoji="🏠" type="button">🏠</button>
+    </div>
+    <div class="section-label" style="margin-top:4px;">Data <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0b0b0;font-size:11px;">(opcional)</span></div>
+    <div class="date-picker-row">
+      <button class="date-chip" id="date-chip-today">Hoje</button>
+      <button class="date-chip" id="date-chip-tomorrow">Amanhã</button>
+      <button class="date-chip" id="date-chip-custom">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Outra data
+      </button>
+      <button class="date-chip date-chip-clear" id="date-chip-clear" style="display:none">✕ Limpar</button>
+    </div>
+    <input type="date" id="modal-date-input" style="display:none; width:100%; padding:10px 14px; border:1.5px solid #e8e8e8; border-radius:12px; font-family:'DM Sans',sans-serif; font-size:15px; margin-bottom:14px; background:var(--bg); color:var(--text); outline:none;" />
+    <button type="button" class="time-toggle-btn" id="modal-time-toggle" style="display:none;">+ Adicionar horário</button>
+    <div class="time-picker-wrap" id="modal-time-wrap">
+      <div class="time-picker-header">
+        <span class="time-picker-label section-label" style="margin-bottom:0;">HORÁRIO</span>
+        <button class="time-clear-btn" id="modal-time-clear">✕ LIMPAR</button>
+      </div>
+      <div class="time-picker">
+        <div class="time-scroll-col" id="modal-hour-col"></div>
+        <div class="time-sep">:</div>
+        <div class="time-scroll-col" id="modal-min-col"></div>
+      </div>
+    </div>
+    <div id="modal-date-preview" class="date-preview" style="display:none;"></div>
+    <button id="modal-pin-btn" onclick="event.preventDefault()" style="
+      width:100%; margin-bottom:12px; padding:11px; border-radius:14px;
+      border:1.5px solid #e8e8e8; background:var(--surface);
+      font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500;
+      color:var(--muted); cursor:pointer; display:flex; align-items:center; gap:8px; justify-content:center;
+      transition: all 0.18s;">📌 Fixar no topo</button>
+    <button class="modal-confirm" id="modal-confirm">Adicionar</button>
+  </div>
+</div>
+
+<!-- PHOTO FULLSCREEN VIEWER -->
+<div id="photo-viewer">
+  <button id="photo-viewer-close">✕</button>
+  <button id="photo-viewer-delete" title="Excluir foto">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+  </button>
+  <img id="photo-viewer-img" src="" alt="" />
+  <video id="photo-viewer-vid" src="" controls playsinline style="display:none;max-width:94vw;max-height:82vh;border-radius:16px;"></video>
+</div>
+
+<input type="file" id="photo-file-input" accept="image/*,video/*" />
+<input type="file" id="edit-photo-file-input" accept="image/*,video/*" />
+<input type="file" id="import-file-input" accept=".json" />
+
+
+<!-- CATEGORY FULLSCREEN -->
+<div id="cat-fullscreen">
+  <div id="cat-fs-header">
+    <button id="cat-fs-back">←</button>
+    <span id="cat-fs-title"></span>
+    <span id="cat-fs-badge"></span>
+  </div>
+  <div id="cat-fs-list"></div>
+</div>
+
+<div id="cat-menu-backdrop">
+  <div id="cat-menu">
+    <button class="cat-menu-item" id="cat-menu-rename">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Renomear
+    </button>
+    <div class="cat-menu-sep"></div>
+    <button class="cat-menu-item danger" id="cat-menu-delete">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+      Excluir
+    </button>
+  </div>
+</div>
+
+<div id="done-toast"><div class="toast-icon"><svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5 6 4.5 9 10.5 3"/></svg></div><div class="toast-text" id="toast-text"></div><button id="toast-undo-btn">Desfazer</button></div>
+
+
+<script>
+// ── STATE ──
+let data = {
+  cats: ['TAREFAS'],
+  tasks: [],
+  catAvatars: {},
+  collapsedCats: [],
+  manualOrderCats: []
+};
+
+// ── IndexedDB: persiste todo o estado incluindo fotos grandes ──
+const DB_NAME = 'tarefasApp';
+const DB_STORE = 'state';
+const DB_KEY = 'appState';
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (db) return resolve(db);
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(DB_STORE);
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+let cur = 0;
+let lastTouchedCat = null; // categoria da última tarefa concluída/tocada — usada pelos botões ⏪⏩
+let gradeMode = false;
+const TODAS = 'TODAS';
+
+function uid() { return Math.random().toString(36).slice(2,10); }
+function clearJustAdded() {
+  let changed = false;
+  data.tasks.forEach(t => { if (t.justAdded) { delete t.justAdded; changed = true; } });
+  return changed;
+}
+function save() {
+  openDB().then(db => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).put(data, DB_KEY);
+  }).catch(() => {});
+  if (typeof scheduleBackup === 'function') scheduleBackup();
+}
+
+// ── UNDO HISTORY ──
+const UNDO_MAX = 10;
+let undoStack = []; // each entry: { snapshot: deepCopy(data), label: string }
+
+function pushUndo(label) {
+  // Deep clone current data (excluding large photo blobs to avoid memory bloat)
+  const snapshot = JSON.parse(JSON.stringify({
+    cats: data.cats,
+    tasks: data.tasks.map(t => ({ ...t, photo: t.photo ? '__photo__' : null, photoType: t.photoType })),
+    catAvatars: Object.fromEntries(Object.entries(data.catAvatars).map(([k]) => [k, '__avatar__']))
+  }));
+  // Store actual photos by task id
+  snapshot._photos    = Object.fromEntries(data.tasks.filter(t => t.photo).map(t => [t.id, t.photo]));
+  snapshot._avatars   = { ...data.catAvatars };
+  undoStack.push({ snapshot, label });
+  if (undoStack.length > UNDO_MAX) undoStack.shift();
+  updateUndoBtn();
+}
+
+function updateUndoBtn() {
+  const btn = document.getElementById('undo-btn');
+  if (!btn) return;
+  if (undoStack.length > 0) {
+    btn.disabled = false;
+    const last = undoStack[undoStack.length - 1];
+    btn.title = 'Desfazer: ' + last.label;
+  } else {
+    btn.disabled = true;
+    btn.title = '';
+  }
+}
+
+function applyUndo() {
+  if (!undoStack.length) return;
+  const { snapshot, label } = undoStack.pop();
+
+  // Salva posição de scroll antes de re-renderizar
+  const pageScrolls = {};
+  document.querySelectorAll('.page').forEach((p, i) => { pageScrolls[i] = p.scrollTop; });
+  const gh = document.getElementById('grid-home');
+  const gridScroll = gh ? gh.scrollTop : 0;
+  const kanbanScrolls = {};
+  document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => { kanbanScrolls[b.dataset.cat] = b.scrollTop; });
+
+  // Restore photos
+  const photos  = snapshot._photos  || {};
+  const avatars = snapshot._avatars || {};
+  delete snapshot._photos;
+  delete snapshot._avatars;
+  data.cats       = snapshot.cats;
+  data.catAvatars = avatars;
+  data.tasks      = snapshot.tasks.map(t => ({
+    ...t,
+    photo:     t.photo === '__photo__' ? (photos[t.id] || null) : null,
+    photoType: t.photoType || 'image'
+  }));
+  save();
+  cur = Math.max(0, Math.min(cur, allCats().length - 1));
+  render();
+  if (gridMode) renderGrid();
+
+  // Restaura posição de scroll após re-renderizar
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.page').forEach((p, i) => { if (pageScrolls[i]) p.scrollTop = pageScrolls[i]; });
+    const gh2 = document.getElementById('grid-home');
+    if (gh2 && gridScroll) gh2.scrollTop = gridScroll;
+    document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+      if (kanbanScrolls[b.dataset.cat]) b.scrollTop = kanbanScrolls[b.dataset.cat];
+    });
+  });
+
+  updateUndoBtn();
+  showDoneToast('Desfeito: ' + label);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const undoBtn = document.getElementById('undo-btn');
+  if (undoBtn) undoBtn.addEventListener('click', applyUndo);
+});
+// fallback: bind after script runs too
+setTimeout(() => {
+  const undoBtn = document.getElementById('undo-btn');
+  if (undoBtn && !undoBtn._undoBound) {
+    undoBtn._undoBound = true;
+    undoBtn.addEventListener('click', applyUndo);
+  }
+}, 0);
+function allCats() { return [...data.cats]; }
+
+// ── DOM ──
+const tabsEl       = document.getElementById('tabs-scroll');
+const dotsEl       = document.getElementById('dots');
+const trackEl      = document.getElementById('carousel-track');
+const outerEl      = document.getElementById('carousel-outer');
+const modalEl      = document.getElementById('modal');
+const modalTitleEl = document.getElementById('modal-title');
+const taskInEl     = document.getElementById('modal-task-in');
+const catLabelEl   = document.getElementById('cat-label');
+const modalCatsEl  = document.getElementById('modal-cats');
+const newCatRow    = document.getElementById('new-cat-row');
+const newCatIn     = document.getElementById('new-cat-in');
+const newCatOk     = document.getElementById('new-cat-ok');
+const modalBtn     = document.getElementById('modal-confirm');
+const newTaskIn    = document.getElementById('new-task');
+const addBtn       = document.getElementById('add-btn');
+const clearBtn     = document.getElementById('clear-btn');
+const gradeBtn     = document.getElementById('grade-btn');
+const photoViewer  = document.getElementById('photo-viewer');
+const photoViewImg = document.getElementById('photo-viewer-img');
+const photoViewClose = document.getElementById('photo-viewer-close');
+const photoViewDelete = document.getElementById('photo-viewer-delete');
+const photoFileIn  = document.getElementById('photo-file-input');
+const avatarFileIn = document.getElementById('avatar-file-input');
+const avatarsEl    = document.getElementById('cat-avatars');
+let pendingAvatarCat = null;
+
+// Atualiza só as barrinhas de progresso, sem re-renderizar os avatares
+function updateProgressBars() {
+  document.querySelectorAll('.cat-avatar-wrap[data-cat]').forEach(wrap => {
+    const cat = wrap.dataset.cat;
+    const bar = wrap.querySelector('.cat-progress-bar');
+    if (!bar) return;
+    const catTasks = data.tasks.filter(t => t.cat === cat);
+    const total = catTasks.length;
+    const done  = catTasks.filter(t => t.done).length;
+    const pct   = total > 0 ? done / total : 0;
+
+    bar.style.width = pct <= 0 ? '6px' : (pct * 100).toFixed(1) + '%';
+
+    let barColor;
+    if (pct <= 0) barColor = '#e84040';
+    else if (pct < 0.5) {
+      const g = Math.round(64 + (255 - 64) * pct * 2);
+      barColor = `rgb(232,${Math.min(g, 255)},64)`;
+    } else if (pct < 1) {
+      const r = Math.round(255 - (255 - 46) * (pct - 0.5) * 2);
+      const g = Math.round(200 + (158 - 200) * (pct - 0.5) * 2);
+      barColor = `rgb(${r},${Math.max(g, 158)},64)`;
+    } else {
+      barColor = '#2e9e5b';
+    }
+    bar.style.backgroundColor = barColor;
+  });
+}
+
+function renderAvatars() {
+  avatarsEl.innerHTML = '';
+  allCats().forEach((cat, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'cat-avatar-wrap' + (i === cur ? ' active' : '');
+    wrap.dataset.cat = cat;
+
+    const circle = document.createElement('div');
+    circle.className = 'cat-avatar';
+
+    const photo = data.catAvatars[cat];
+    if (photo) {
+      const img = document.createElement('img');
+      img.src = photo; img.alt = cat;
+      circle.appendChild(img);
+    } else {
+      const ghost = document.createElement('div');
+      ghost.className = 'cat-avatar-ghost';
+      ghost.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+      circle.appendChild(ghost);
+    }
+
+    // Long press → menu de contexto (renomear/excluir)
+    let lpTimer = null;
+    let didLp = false;
+    const startLp = () => { didLp = false; lpTimer = setTimeout(() => { didLp = true; openCatMenu(cat, wrap); }, 500); };
+    const clearLp = () => clearTimeout(lpTimer);
+    circle.addEventListener('touchstart', startLp, { passive: true });
+    circle.addEventListener('touchend',   clearLp, { passive: true });
+    circle.addEventListener('touchmove',  clearLp, { passive: true });
+    circle.addEventListener('mousedown',  startLp);
+    circle.addEventListener('mouseup',    clearLp);
+
+    // Tap simples → navega; se já ativo, abre upload de foto
+    circle.addEventListener('click', () => {
+      if (didLp) return;
+      if (i === cur) {
+        // já está nessa aba → abre upload
+        pendingAvatarCat = cat;
+        avatarFileIn.value = '';
+        avatarFileIn.click();
+      } else {
+        // navega para a aba
+        goTo(i);
+      }
+    });
+
+    const label = document.createElement('div');
+    label.className = 'cat-avatar-label';
+    label.textContent = cat;
+
+    // Progress bar
+    const catTasksAll = data.tasks.filter(t => t.cat === cat);
+    const catTotal = catTasksAll.length;
+    const catDone  = catTasksAll.filter(t => t.done).length;
+    const pct = catTotal > 0 ? catDone / catTotal : 0;
+    const progWrap = document.createElement('div');
+    progWrap.className = 'cat-progress-wrap';
+    const progBar = document.createElement('div');
+    progBar.className = 'cat-progress-bar';
+    progBar.style.width = (pct * 100).toFixed(1) + '%';
+    // Color: red → yellow → green
+    let barColor;
+    if (pct <= 0) barColor = '#e84040';
+    else if (pct < 0.5) {
+      // red to yellow
+      const r = 232, g = Math.round(64 + (255-64)*pct*2), b = 64;
+      barColor = `rgb(${r},${Math.min(g,255)},${b})`;
+    } else if (pct < 1) {
+      // yellow to green
+      const r = Math.round(255 - (255-46)*(pct-0.5)*2);
+      const g = Math.round(200 + (158-200)*(pct-0.5)*2);
+      barColor = `rgb(${r},${Math.max(g,158)},64)`;
+    } else {
+      barColor = '#2e9e5b';
+    }
+    if (pct <= 0) { progBar.style.width = '6px'; progBar.style.borderRadius = '3px'; }
+    progBar.style.backgroundColor = barColor;
+    progWrap.appendChild(progBar);
+
+    wrap.appendChild(circle);
+    wrap.appendChild(label);
+    if (cat !== 'TAREFAS') wrap.appendChild(progWrap);
+    avatarsEl.appendChild(wrap);
+  });
+
+  // Botão "+" nova categoria
+  const addWrap = document.createElement('div');
+  addWrap.className = 'cat-avatar-wrap';
+  const addCircle = document.createElement('div');
+  addCircle.className = 'cat-avatar';
+  addCircle.style.cssText = 'border: 1.5px dashed #c8c8c8; background: transparent;';
+  addCircle.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8c8c8" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+  addCircle.onclick = () => openNewCatModal();
+  const addLabel = document.createElement('div');
+  addLabel.className = 'cat-avatar-label';
+  addLabel.textContent = 'Nova';
+  addWrap.appendChild(addCircle);
+  addWrap.appendChild(addLabel);
+  avatarsEl.appendChild(addWrap);
+}
+
+avatarFileIn.addEventListener('change', () => {
+  const file = avatarFileIn.files[0];
+  if (!file || !pendingAvatarCat) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    data.catAvatars[pendingAvatarCat] = e.target.result;
+    save();
+    renderAvatars();
+    if (gridMode) renderGrid();
+    pendingAvatarCat = null;
+  };
+  reader.readAsDataURL(file);
+});
+
+const editBtn      = document.getElementById('edit-btn');
+const deleteBtn    = document.getElementById('delete-btn');
+const editModalEl  = document.getElementById('edit-modal-backdrop');
+const editTaskIn   = document.getElementById('edit-task-in');
+const editPhotoZone = document.getElementById('edit-photo-zone');
+const editPhotoRemoveBtn = document.getElementById('edit-photo-remove-btn');
+const editPhotoFileIn = document.getElementById('edit-photo-file-input');
+
+function renderEditPhotoZone(task) {
+  editPhotoZone.innerHTML = '';
+  if (task.photo) {
+    editPhotoZone.classList.add('has-photo');
+    const isVideo = task.photo.startsWith('data:video') || task.photoType === 'video';
+    if (isVideo) {
+      const vid = document.createElement('video');
+      vid.src = task.photo; vid.muted = true; vid.playsInline = true;
+      editPhotoZone.appendChild(vid);
+    } else {
+      const img = document.createElement('img');
+      img.src = task.photo; img.alt = '';
+      editPhotoZone.appendChild(img);
+    }
+    editPhotoRemoveBtn.style.display = '';
+  } else {
+    editPhotoZone.classList.remove('has-photo');
+    editPhotoZone.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);opacity:0.5;">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>`;
+    editPhotoRemoveBtn.style.display = 'none';
+  }
+}
+
+editPhotoZone.addEventListener('click', () => {
+  const task = data.tasks.find(t => t.id === lastTouchedId);
+  if (!task) return;
+  if (task.photo) {
+    const isVideo = task.photo.startsWith('data:video') || task.photoType === 'video';
+    openPhotoViewer(task.photo, isVideo, task.id);
+  } else {
+    editPhotoFileIn.value = '';
+    editPhotoFileIn.click();
+  }
+});
+
+editPhotoRemoveBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  const task = data.tasks.find(t => t.id === lastTouchedId);
+  if (!task) return;
+  task.photo = null;
+  task.photoType = null;
+  save();
+  renderEditPhotoZone(task);
+  render();
+  if (gridMode) renderGrid();
+  if (catFullscreen.classList.contains('show') && catFsTitle.textContent === task.cat) renderCatFs(task.cat);
+});
+
+editPhotoFileIn.addEventListener('change', () => {
+  const file = editPhotoFileIn.files[0];
+  const task = data.tasks.find(t => t.id === lastTouchedId);
+  if (!file || !task) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    task.photo = e.target.result;
+    task.photoType = file.type.startsWith('video/') ? 'video' : 'image';
+    save();
+    renderEditPhotoZone(task);
+    render();
+    if (gridMode) renderGrid();
+    if (catFullscreen.classList.contains('show') && catFsTitle.textContent === task.cat) renderCatFs(task.cat);
+  };
+  reader.readAsDataURL(file);
+});
+const editConfirmBtn = document.getElementById('edit-confirm-btn');
+const deleteModalEl  = document.getElementById('delete-modal-backdrop');
+const deleteTaskNameEl = document.getElementById('delete-task-name');
+const deleteCancelBtn  = document.getElementById('delete-cancel-btn');
+const deleteConfirmBtn = document.getElementById('delete-confirm-btn');
+
+// ── CONCLUIR/REMARCAR (tarefas com data ao serem concluídas) ──
+const completeModalEl       = document.getElementById('complete-modal-backdrop');
+const completeTaskNameEl    = document.getElementById('complete-task-name');
+const completeRescheduleBtn = document.getElementById('complete-reschedule-btn');
+const completeConfirmBtn    = document.getElementById('complete-confirm-btn');
+let pendingCompleteAction = null;
+let pendingCompleteTaskId = null;
+
+// Chama isso em vez de completar direto quando a tarefa tem dueDate.
+// onConfirm: função a executar se o usuário escolher "Concluir".
+function askCompleteOrReschedule(task, onConfirm) {
+  pendingCompleteAction = onConfirm;
+  pendingCompleteTaskId = task.id;
+  completeTaskNameEl.textContent = task.text;
+  completeModalEl.classList.add('show');
+}
+
+function closeCompleteModal() {
+  completeModalEl.classList.remove('show');
+  pendingCompleteAction = null;
+  pendingCompleteTaskId = null;
+}
+
+completeConfirmBtn.onclick = () => {
+  const action = pendingCompleteAction;
+  closeCompleteModal();
+  if (action) action();
+};
+
+// Remarcar: abre só um popup com calendário (sem o editor completo)
+const rescheduleModalEl  = document.getElementById('reschedule-modal-backdrop');
+const rescheduleDateIn   = document.getElementById('reschedule-date-input');
+let rescheduleTaskId = null;
+const rescheduleOldEl     = document.getElementById('reschedule-old');
+const rescheduleNewEl     = document.getElementById('reschedule-new');
+const rescheduleConfirmBtn = document.getElementById('reschedule-confirm-btn');
+
+function openRescheduleModal(taskId) {
+  const task = data.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  rescheduleTaskId = taskId;
+  // Mostra a data antiga em cima; a nova só aparece embaixo depois que você escolher
+  rescheduleOldEl.textContent = task.dueDate ? formatDateLabel(task.dueDate) + (task.dueTime ? ' · ' + task.dueTime : '') : 'Sem data';
+  rescheduleOldEl.classList.remove('replaced');
+  rescheduleDateIn.value = '';
+  rescheduleNewEl.textContent = '';
+  rescheduleConfirmBtn.disabled = true;
+  rescheduleModalEl.classList.add('show');
+  setTimeout(() => {
+    try { rescheduleDateIn.showPicker(); }
+    catch (e) { rescheduleDateIn.focus(); rescheduleDateIn.click(); }
+  }, 60);
+}
+
+function closeRescheduleModal() {
+  rescheduleModalEl.classList.remove('show');
+  rescheduleTaskId = null;
+}
+
+function applyReschedule() {
+  const newDate = rescheduleDateIn.value;
+  const task = data.tasks.find(t => t.id === rescheduleTaskId);
+  if (!task || !newDate) return;
+  pushUndo('Remarcar: ' + task.text.slice(0, 30));
+  task.dueDate = newDate;
+  lastTouchedId = task.id;
+  closeRescheduleModal();
+  save(); render(); updateProgressBars();
+  if (typeof gridMode !== 'undefined' && gridMode) renderGrid();
+  if (catFullscreen.classList.contains('show') && catFsTitle.textContent === task.cat) renderCatFs(task.cat);
+  if (playCat) renderPlayCurrent(); // some do play se a nova data for depois de amanhã
+}
+
+function onRescheduleDatePicked() {
+  const v = rescheduleDateIn.value;
+  if (!v) {
+    rescheduleOldEl.classList.remove('replaced');
+    rescheduleNewEl.textContent = '';
+    rescheduleConfirmBtn.disabled = true;
+    return;
+  }
+  rescheduleOldEl.classList.add('replaced');
+  rescheduleNewEl.textContent = formatDateLabel(v);
+  rescheduleConfirmBtn.disabled = false;
+}
+rescheduleDateIn.addEventListener('change', onRescheduleDatePicked);
+rescheduleDateIn.addEventListener('input', onRescheduleDatePicked);
+rescheduleConfirmBtn.onclick = applyReschedule;
+rescheduleModalEl.addEventListener('click', e => {
+  if (e.target === rescheduleModalEl) closeRescheduleModal();
+});
+
+completeRescheduleBtn.onclick = () => {
+  const taskId = pendingCompleteTaskId;
+  closeCompleteModal();
+  if (taskId) openRescheduleModal(taskId);
+};
+
+completeModalEl.addEventListener('click', e => {
+  if (e.target === completeModalEl) closeCompleteModal();
+});
+
+// ID da última tarefa tocada (marcada ou desmarcada)
+let lastTouchedId = null;
+
+
+const toastEl    = document.getElementById('done-toast');
+const toastText  = document.getElementById('toast-text');
+let toastTimer   = null;
+
+let toastUndoCallback = null;
+const toastUndoBtn = document.getElementById('toast-undo-btn');
+
+// Fila de conclusões recentes: permite desfazer várias tarefas concluídas
+// em sequência, uma por clique, mesmo que tenham sido concluídas rapidinho.
+let toastUndoQueue = [];
+
+function showQueuedToast() {
+  if (!toastUndoQueue.length) return;
+  const top = toastUndoQueue[toastUndoQueue.length - 1];
+  toastText.textContent = top.text;
+  toastUndoBtn.style.display = '';
+  toastEl.style.background = '';
+  toastEl.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastEl.classList.remove('show');
+    toastEl.style.background = '';
+    toastUndoQueue = [];
+  }, 4000);
+}
+
+function queueDoneToast(text, undoFn) {
+  toastUndoQueue.push({ text, fn: undoFn });
+  showQueuedToast();
+}
+
+toastUndoBtn.addEventListener('click', () => {
+  if (toastUndoQueue.length) {
+    const top = toastUndoQueue.pop();
+    top.fn();
+    if (toastUndoQueue.length) {
+      // Ainda há conclusões recentes: mostra a próxima para continuar desfazendo
+      showQueuedToast();
+      return;
+    }
+  } else if (toastUndoCallback) {
+    toastUndoCallback();
+    toastUndoCallback = null;
+  }
+  clearTimeout(toastTimer);
+  toastEl.classList.remove('show');
+});
+
+function showDoneToast(text, undoFn, color) {
+  // Toast avulso (não é conclusão de tarefa): limpa a fila de conclusões
+  toastUndoQueue = [];
+  toastText.textContent = text;
+  toastUndoCallback = undoFn || null;
+  toastUndoBtn.style.display = undoFn ? '' : 'none';
+  toastEl.style.background = color || '';
+  toastEl.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastEl.classList.remove('show'); toastEl.style.background = ''; }, 4000);
+}
+
+// ── RENDER ──
+function render() {
+  cur = Math.max(0, Math.min(cur, allCats().length - 1));
+  renderTabs(); renderAvatars(); renderDots(); renderPages(); setTrack(false);
+  if (gridMode) renderGrid();
+  // Re-apply editMode highlight after re-render
+  if (editMode) {
+    document.querySelectorAll('.task').forEach(el => el.classList.add('edit-mode-hover'));
+  }
+  if (deleteMode) {
+    document.querySelectorAll('.task').forEach(el => el.classList.add('delete-mode-hover'));
+  }
+  if (searchActive && searchQuery) requestAnimationFrame(applySearch);
+}
+
+function scrollToTask(id) {
+  requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-task-id="${id}"]`);
+    if (!el) return;
+    const page = el.closest('.page');
+    if (page) {
+      const elTop = el.offsetTop;
+      const pageH = page.clientHeight;
+      const elH = el.offsetHeight;
+      page.scrollTo({ top: elTop - pageH / 2 + elH / 2, behavior: 'smooth' });
+    }
+  });
+}
+
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  allCats().forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'tab' + (i === cur ? ' active' : '');
+    b.textContent = c;
+    b.onclick = () => goTo(i);
+    // Long press to open context menu
+    b.addEventListener('touchstart', () => {
+      longPressTimer = setTimeout(() => { openCatMenu(c, b); }, 500);
+    }, { passive: true });
+    b.addEventListener('touchend', () => clearTimeout(longPressTimer), { passive: true });
+    b.addEventListener('touchmove', () => clearTimeout(longPressTimer), { passive: true });
+    b.addEventListener('mousedown', () => {
+      longPressTimer = setTimeout(() => { openCatMenu(c, b); }, 500);
+    });
+    b.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+    tabsEl.appendChild(b);
+  });
+  const plus = document.createElement('button');
+  plus.className = 'tab-add'; plus.textContent = '+';
+  plus.onclick = () => openNewCatModal();
+  tabsEl.appendChild(plus);
+  const active = tabsEl.children[cur];
+  if (active) active.scrollIntoView({ inline:'center', behavior:'smooth', block:'nearest' });
+}
+
+function renderDots() {
+  dotsEl.innerHTML = '';
+  allCats().forEach((_,i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === cur ? ' active' : '');
+    dotsEl.appendChild(d);
+  });
+}
+
+// ── ORDENAÇÃO CENTRAL DE TAREFAS PENDENTES ──
+// Usada no carrossel (renderPages), na tela cheia da categoria (renderCatFs)
+// e na visão em grade/kanban (renderGrid), para garantir que a ordem seja
+// sempre a mesma — inclusive ao adicionar tarefa nova e ao importar backup JSON.
+//
+// Prioridade:
+// 1) Data marcada para hoje, amanhã, depois de amanhã (ou atrasada) → topo máximo
+// 2) Tarefas com emoji 📅 no início do texto (fixadas manualmente)
+// 3) Data marcada a partir de depois de amanhã (futuro distante)
+// 4) Sem data e sem emoji especial
+// 5) Sem data, com emoji especial (🌍📱🏠🎒)
+const SPECIAL_EMOJIS = ['🌍','📱','🏠','🎒'];
+function isPinnedEmoji(t) { return t.text.replace(/^\s+/, '').startsWith('📅'); }
+function hasSpecialEmoji(t) { return SPECIAL_EMOJIS.some(e => t.text.includes(e)); }
+function sortPendingTasks(tasksArr, cat) {
+  const justAdded = tasksArr.filter(t => t.justAdded)
+                            .sort((a, b) => (b.order || 0) - (a.order || 0));
+  const rest = tasksArr.filter(t => !t.justAdded);
+
+  // Tarefas com data SEMPRE mantêm a posição por data, não importa o que o 🌍 fizer.
+  // "Perto": hoje até 4 dias a partir de hoje (inclui atrasadas) → fica no topo
+  // "Longe": mais de 4 dias a partir de hoje → vai para o final da categoria
+  const dateNear = rest.filter(t => t.dueDate && daysDiffFromToday(t.dueDate) <= 4)
+                            .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const pinned   = rest.filter(t => isPinnedEmoji(t) && !t.dueDate)
+                            .sort((a, b) => (b.order || 0) - (a.order || 0));
+  const dateFar  = rest.filter(t => t.dueDate && daysDiffFromToday(t.dueDate) > 4)
+                            .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  const noDate   = rest.filter(t => !t.dueDate && !isPinnedEmoji(t));
+
+  // Só a parte SEM data é reorganizável pelos comandos do 🌍 (ordem manual, array de data.tasks).
+  // Categorias ainda não organizadas manualmente usam a separação padrão sem-emoji / com-emoji.
+  let noDateOrdered;
+  if (cat && data.manualOrderCats && data.manualOrderCats.includes(cat)) {
+    noDateOrdered = noDate;
+  } else {
+    const noDateNoEmoji  = noDate.filter(t => !hasSpecialEmoji(t));
+    const noDateWithEmoji = noDate.filter(t => hasSpecialEmoji(t));
+    noDateOrdered = [...noDateNoEmoji, ...noDateWithEmoji];
+  }
+
+  return [...justAdded, ...dateNear, ...pinned, ...noDateOrdered, ...dateFar];
+}
+
+// Categorias organizadas manualmente (via botão 🌍) só reordenam a parte
+// sem data — as tarefas com data marcada sempre mantêm a posição por data.
+function orderedPending(cat, tasksArr) {
+  return sortPendingTasks(tasksArr, cat);
+}
+
+function renderPages() {
+  trackEl.innerHTML = '';
+
+  allCats().forEach(cat => {
+    const page = document.createElement('div');
+    page.className = 'page' + (gradeMode ? ' fat' : '');
+    const catTasks = data.tasks.filter(t => t.cat === cat);
+
+    if (!catTasks.length) {
+      page.innerHTML = `<div class="empty"><span class="empty-icon">○</span>Nenhuma tarefa em<br><b>${esc(cat)}</b></div>`;
+    } else {
+      const allPending = catTasks.filter(t => !t.done);
+      const done       = catTasks.filter(t => t.done).sort((a,b) => (b.doneAt||0) - (a.doneAt||0));
+
+      orderedPending(cat, allPending).forEach(t => page.appendChild(makeTaskEl(t)));
+
+      if (done.length) {
+        const div = document.createElement('div');
+        div.className = 'done-divider';
+        div.id = 'done-divider';
+        div.textContent = 'Concluídas';
+        page.appendChild(div);
+        done.forEach(t => page.appendChild(makeTaskEl(t)));
+      }
+    }
+    trackEl.appendChild(page);
+  });
+}
+
+function openTaskLink(url) {
+  // Tenta abrir em nova aba/janela (funciona na maioria dos navegadores reais)
+  let win = null;
+  try { win = window.open(url, '_blank', 'noopener,noreferrer'); } catch (e) {}
+  if (win) { try { win.opener = null; } catch(e) {} return; }
+  // Se o navegador/visualizador bloquear popups (comum em WebViews e visualizadores
+  // de arquivo local), tenta navegar diretamente — geralmente entrega pro Chrome.
+  try { window.location.href = url; return; } catch (e) {}
+  // Último recurso: cria um link temporário e simula o clique nativo
+  const a = document.createElement('a');
+  a.href = url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function linkifyText(rawText) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = rawText.split(urlRegex);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      // É uma URL
+      let display = part;
+      try {
+        const u = new URL(part);
+        display = u.hostname.replace(/^www\./, '') + (u.pathname !== '/' ? u.pathname : '');
+      } catch(e) {}
+      if (display.length > 40) display = display.slice(0, 38) + '…';
+      return `<a class="task-link" href="${part}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation(); event.preventDefault(); openTaskLink('${part.replace(/'/g, "\\'")}');">${esc(display)}</a>`;
+    }
+    return esc(part);
+  }).join('');
+}
+
+function renderTaskLabel(text, done) {
+  const heart = '🖤';
+  const idx = text.indexOf(heart);
+  if (idx === -1) return linkifyText(text);
+  const before = linkifyText(text.slice(0, idx));
+  const after  = linkifyText(text.slice(idx + heart.length));
+  return `${before}<span style="opacity:0.2">${heart}</span><span class="heart-secret">${after}</span>`;
+}
+
+function makeTaskEl(t) {
+  const el = document.createElement('div');
+  const urgent = isUrgent(t);
+  const todayDue = t.dueDate && isToday(t.dueDate) && !t.done;
+  const tomorrowDue = t.dueDate && isTomorrow(t.dueDate) && !t.done;
+  const futureDue = t.dueDate && !t.done && t.dueDate > tomorrowStr();
+  const overdueDue = t.dueDate && !t.done && t.dueDate < todayStr();
+  let cls = 'task' + (t.done ? ' done' : '');
+  if (overdueDue) cls += ' overdue';
+  else if (todayDue) cls += ' urgent';
+  else if (tomorrowDue) cls += ' urgent-tomorrow';
+  else if (futureDue) cls += ' urgent-future';
+  el.className = cls;
+  el.dataset.taskId = t.id;
+
+  // Date badge
+  const dateBadge = (t.dueDate && !t.done)
+    ? `<span class="task-date-badge ${todayDue ? 'badge-today' : tomorrowDue ? 'badge-tomorrow' : overdueDue ? 'badge-overdue' : 'badge-future'}">${formatDateLabel(t.dueDate)}${t.dueTime ? ' - ' + t.dueTime : ''}</span>`
+    : '';
+
+  // ── MAIN ROW (tap = toggle done) ──
+  const main = document.createElement('div');
+  main.className = 'task-main';
+  main.innerHTML = `
+    <div class="task-check">
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="1.5 6 4.5 9 10.5 3"/>
+      </svg>
+    </div>
+    <span class="task-label">${dateBadge}${renderTaskLabel(t.text, t.done)}</span>`;
+  el.appendChild(main);
+
+  function updateSecretText(done) {
+    // CSS via .task.done .heart-secret já cuida da visibilidade e altura
+  }
+
+  function toggleDone(e, fromCheck) {
+    if (e && e.target && e.target.closest('.task-photo-zone')) return;
+    const task = data.tasks.find(x => x.id === t.id);
+    if (!task) return;
+    // Tarefa com data sendo concluída (atrasada ou não): pergunta antes
+    if (!task.done && task.dueDate) {
+      askCompleteOrReschedule(task, () => performToggleDone(task, fromCheck));
+      return;
+    }
+    performToggleDone(task, fromCheck);
+  }
+
+  function performToggleDone(task, fromCheck) {
+    // Save undo snapshot only when marking as done (most common accident)
+    if (!task.done) pushUndo('Concluir: ' + task.text.slice(0, 30));
+    task.done = !task.done;
+    task.doneAt = task.done ? Date.now() : null;
+    lastTouchedId = task.id;
+    save();
+    el.classList.toggle('done', task.done);
+    updateSecretText(task.done);
+    updateProgressBars(); // atualiza barrinha ao vivo
+
+    // highlight last action
+    clearLastHighlights();
+    if (task.done) {
+      el.classList.add('last-done');
+      lastDoneEl = el;
+    } else {
+      el.classList.add('last-undone');
+      lastUndoneEl = el;
+    }
+
+    // Reorder only when tapped from the check circle
+    if (fromCheck) {
+      const page = el.closest('.page');
+      if (!page) return;
+      if (task.done) {
+        // Ensure divider exists
+        let divider = page.querySelector('#done-divider');
+        if (!divider) {
+          divider = document.createElement('div');
+          divider.className = 'done-divider';
+          divider.id = 'done-divider';
+          divider.textContent = 'Concluídas';
+          // Insert divider before the first done task, or at end
+          const firstDone = [...page.querySelectorAll('.task.done')].find(n => n !== el);
+          if (firstDone) page.insertBefore(divider, firstDone);
+          else page.appendChild(divider);
+        }
+        // Insert newly done task right after the divider
+        if (divider.nextSibling) page.insertBefore(el, divider.nextSibling);
+        else page.appendChild(el);
+        showDoneToast(task.text);
+      } else {
+        // Newly undone: restore to original position among pending tasks
+        // Remove divider if no done tasks remain
+        const dividerEl = page.querySelector('#done-divider');
+        if (dividerEl && page.querySelectorAll('.task.done').length === 0) dividerEl.remove();
+        // pending tasks excluding self, sorted by order desc (newest first = top)
+        const otherPending = [...page.querySelectorAll('.task:not(.done)')].filter(n => n !== el);
+        const myOrder = task.order ?? 0;
+        let inserted = false;
+        for (const node of otherPending) {
+          const nodeTask = data.tasks.find(x => x.id === node.dataset.taskId);
+          // insert before the first node that has lower order (older) than me
+          if (nodeTask && (nodeTask.order ?? 0) < myOrder) {
+            page.insertBefore(el, node);
+            inserted = true;
+            break;
+          }
+        }
+        if (!inserted) {
+          // I'm the oldest pending — go just before first done, or end
+          const firstDone = page.querySelector('.task.done');
+          if (firstDone) page.insertBefore(el, firstDone);
+          else page.appendChild(el);
+        }
+      }
+    }
+  }
+
+  main.addEventListener('click', e => {
+    e.stopPropagation();
+    if (editMode) {
+      openEditModalForTask(t.id);
+      return;
+    }
+    if (deleteMode) {
+      openDeleteModalForTask(t.id);
+      return;
+    }
+    // task-check has pointer-events:none so we detect by x position — leftmost ~50px = check zone
+    const rect = main.getBoundingClientRect();
+    const fromCheck = (e.clientX - rect.left) < 50;
+    toggleDone(null, fromCheck);
+  });
+
+  // tap on task background (fat mode empty area) — never reorders
+  el.addEventListener('click', e => {
+    if (editMode) {
+      openEditModalForTask(t.id);
+      return;
+    }
+    if (deleteMode) {
+      openDeleteModalForTask(t.id);
+      return;
+    }
+    toggleDone(e, false);
+  });
+
+  // ── PHOTO ZONE (always present on the right) ──
+  const zone = document.createElement('div');
+  zone.className = 'task-photo-zone';
+
+  if (t.photo) {
+    const isVideo = t.photo.startsWith('data:video') || t.photoType === 'video';
+    const thumb = document.createElement('div');
+    thumb.className = 'task-thumb';
+    if (isVideo) {
+      const vid = document.createElement('video');
+      vid.src = t.photo; vid.muted = true; vid.playsInline = true;
+      vid.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      thumb.appendChild(vid);
+      // play icon overlay
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;';
+      overlay.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="white" opacity="0.85"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+      thumb.style.position = 'relative';
+      thumb.appendChild(overlay);
+    } else {
+      const img = document.createElement('img');
+      img.src = t.photo; img.alt = '';
+      thumb.appendChild(img);
+    }
+    zone.appendChild(thumb);
+    zone.addEventListener('click', e => { e.stopPropagation(); openPhotoViewer(t.photo, isVideo, t.id); });
+  } else {
+    // ghost camera icon
+    const ghost = document.createElement('div');
+    ghost.className = 'photo-icon-ghost';
+    ghost.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </svg>`;
+    zone.appendChild(ghost);
+
+    // simple click = pick photo
+    zone.addEventListener('click', e => { e.stopPropagation(); pickPhoto(t.id); });
+  }
+
+  el.appendChild(zone);
+  return el;
+}
+
+function setTrack(anim = true) {
+  if (!anim) trackEl.style.transition = 'none';
+  trackEl.style.transform = `translateX(${-cur * 100}vw)`;
+  if (!anim) requestAnimationFrame(() => trackEl.style.transition = '');
+}
+
+function goTo(i) {
+  heartsRevealed = false;
+  todayDisplayBtn.style.background = '';
+  todayDisplayBtn.style.color = '';
+  cur = i; renderTabs(); renderAvatars(); renderDots(); setTrack(true);
+}
+
+// ── PHOTO ──
+let pendingPhotoId = null;
+
+function pickPhoto(taskId) {
+  pendingPhotoId = taskId;
+  photoFileIn.value = ''; photoFileIn.click();
+}
+
+photoFileIn.addEventListener('change', () => {
+  const file = photoFileIn.files[0];
+  if (!file || !pendingPhotoId) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const task = data.tasks.find(t => t.id === pendingPhotoId);
+    if (task && !task.photo) {
+      task.photo = e.target.result;
+      task.photoType = file.type.startsWith('video/') ? 'video' : 'image';
+      save(); render();
+      if (gridMode) renderGrid();
+      if (catFullscreen.classList.contains('show') && catFsTitle.textContent === task.cat) renderCatFs(task.cat);
+    }
+    pendingPhotoId = null;
+  };
+  reader.readAsDataURL(file);
+});
+
+const photoViewVid = document.getElementById('photo-viewer-vid');
+
+// Miniatura só pra visualização nos cards do modo "Categorias" — some se não tiver foto.
+// Adicionar/trocar foto agora é feito só pelo popup de Editar.
+function makePhotoThumbIfAny(t) {
+  if (!t.photo) return null;
+  const isVideo = t.photo.startsWith('data:video') || t.photoType === 'video';
+  const zone = document.createElement('div');
+  zone.className = 'kanban-photo-zone';
+  const thumb = document.createElement('div');
+  thumb.className = 'kanban-photo-thumb';
+  if (isVideo) {
+    thumb.style.position = 'relative';
+    const vid = document.createElement('video');
+    vid.src = t.photo; vid.muted = true; vid.playsInline = true;
+    vid.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    thumb.appendChild(vid);
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="white" opacity="0.85"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+    thumb.appendChild(overlay);
+  } else {
+    const img = document.createElement('img');
+    img.src = t.photo; img.alt = '';
+    thumb.appendChild(img);
+  }
+  zone.appendChild(thumb);
+  zone.addEventListener('click', e => { e.stopPropagation(); openPhotoViewer(t.photo, isVideo, t.id); });
+  return zone;
+}
+
+let photoViewerTaskId = null;
+
+function openPhotoViewer(src, isVideo, taskId) {
+  photoViewerTaskId = taskId || null;
+  photoViewDelete.style.display = photoViewerTaskId ? '' : 'none';
+  if (isVideo) {
+    photoViewImg.style.display = 'none';
+    photoViewVid.style.display = 'block';
+    photoViewVid.src = src;
+    photoViewVid.play();
+  } else {
+    photoViewVid.style.display = 'none';
+    photoViewVid.pause();
+    photoViewImg.style.display = '';
+    photoViewImg.src = src;
+  }
+  photoViewer.classList.add('show');
+}
+photoViewClose.onclick = () => {
+  photoViewer.classList.remove('show');
+  photoViewVid.pause();
+  photoViewVid.src = '';
+};
+photoViewDelete.onclick = () => {
+  const task = data.tasks.find(t => t.id === photoViewerTaskId);
+  photoViewer.classList.remove('show');
+  photoViewVid.pause();
+  photoViewVid.src = '';
+  if (!task) return;
+  task.photo = null;
+  task.photoType = null;
+  save();
+  render();
+  if (gridMode) renderGrid();
+  if (catFullscreen.classList.contains('show') && catFsTitle.textContent === task.cat) renderCatFs(task.cat);
+  if (editModalEl.classList.contains('show') && lastTouchedId === task.id) renderEditPhotoZone(task);
+  showDoneToast('Foto excluída!');
+};
+photoViewer.addEventListener('click', e => {
+  if (e.target === photoViewer) {
+    photoViewer.classList.remove('show');
+    photoViewVid.pause();
+    photoViewVid.src = '';
+  }
+});
+
+// ── SWIPE ──
+const SWIPE_START = 18;
+const SWIPE_COMMIT = 67;
+const SWIPE_RESIST = 0.35;
+
+let tx0 = 0, ty0 = 0, swiping = false, base = 0;
+
+outerEl.addEventListener('touchstart', e => {
+  const touch = e.touches[0];
+  tx0 = touch.clientX; ty0 = touch.clientY;
+  base = -cur * window.innerWidth;
+  swiping = false;
+}, { passive: true });
+
+outerEl.addEventListener('touchmove', e => {
+  const dx = e.touches[0].clientX - tx0;
+  const dy = e.touches[0].clientY - ty0;
+  if (!swiping) {
+    if (Math.abs(dx) < SWIPE_START) return;
+    if (Math.abs(dy) > Math.abs(dx) * 0.7) return;
+    swiping = true;
+  }
+  trackEl.style.transition = 'none';
+  trackEl.style.transform = `translateX(${base + dx * SWIPE_RESIST}px)`;
+}, { passive: true });
+
+outerEl.addEventListener('touchend', e => {
+  if (!swiping) return;
+  const dx = e.changedTouches[0].clientX - tx0;
+  if (dx < -SWIPE_COMMIT && cur < allCats().length - 1) cur++;
+  else if (dx > SWIPE_COMMIT && cur > 0) cur--;
+  swiping = false;
+  trackEl.style.transition = '';
+  renderTabs(); renderAvatars(); renderDots(); setTrack(true);
+}, { passive: true });
+
+let lastDoneEl = null;
+let lastUndoneEl = null;
+
+function clearLastHighlights() {
+  if (lastDoneEl)   { lastDoneEl.classList.remove('last-done');   lastDoneEl = null; }
+  if (lastUndoneEl) { lastUndoneEl.classList.remove('last-undone'); lastUndoneEl = null; }
+}
+let selCat = null, modalMode = 'task';
+let renameMode = false, renamingCat = null;
+let selDate = null; // 'YYYY-MM-DD' or null
+
+// ── DATE HELPERS ──
+function todayStr() {
+  const d = new Date(); 
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function tomorrowStr() {
+  const d = new Date(); d.setDate(d.getDate()+1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function afterTomorrowStr() {
+  const d = new Date(); d.setDate(d.getDate()+2);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function isAfterTomorrow(dateStr) { return dateStr === afterTomorrowStr(); }
+function isUrgent(task) {
+  if (!task.dueDate || task.done) return false;
+  return task.dueDate >= todayStr(); // hoje, amanhã, depois de amanhã, e qualquer data futura
+}
+function isToday(dateStr) { return dateStr === todayStr(); }
+function isTomorrow(dateStr) { return dateStr === tomorrowStr(); }
+function daysDiffFromToday(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const target = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target - today) / 86400000);
+}
+function formatDateLabel(dateStr) {
+  if (!dateStr) return '';
+  if (isToday(dateStr)) return '📅 HOJE';
+  if (isTomorrow(dateStr)) return '📅 AMANHÃ';
+  if (isAfterTomorrow(dateStr)) return '📅 DEPOIS DE AMANHÃ';
+  const [y,m,d] = dateStr.split('-');
+  const diff = daysDiffFromToday(dateStr);
+  let suffix = '';
+  if (diff > 0) suffix = ` - ${diff} DIA${diff === 1 ? '' : 'S'}`;
+  else if (diff < 0) suffix = ` - ATRASADA - HÁ ${Math.abs(diff)} DIA${Math.abs(diff) === 1 ? '' : 'S'}`;
+  return '📅 ' + d + '/' + m + '/' + y + suffix;
+}
+
+// ── TIME PICKER ──
+function buildScrollCol(colEl, items, selectedVal, onChange) {
+  colEl.innerHTML = '';
+  // padding items for scroll snap centering
+  ['',''].forEach(() => {
+    const pad = document.createElement('div');
+    pad.className = 'time-scroll-item';
+    pad.style.visibility = 'hidden';
+    pad.textContent = '00';
+    colEl.appendChild(pad);
+  });
+  items.forEach(val => {
+    const item = document.createElement('div');
+    item.className = 'time-scroll-item' + (val === selectedVal ? ' selected' : '');
+    item.textContent = val;
+    item.addEventListener('click', () => {
+      onChange(val);
+      // scroll to center this item
+      item.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    colEl.appendChild(item);
+  });
+  ['',''].forEach(() => {
+    const pad = document.createElement('div');
+    pad.className = 'time-scroll-item';
+    pad.style.visibility = 'hidden';
+    pad.textContent = '00';
+    colEl.appendChild(pad);
+  });
+  // scroll to selected
+  requestAnimationFrame(() => {
+    const sel = colEl.querySelector('.selected');
+    if (sel) sel.scrollIntoView({ block: 'center', behavior: 'instant' });
+  });
+  // on scroll stop, detect selected item
+  let scrollTimer;
+  colEl.addEventListener('scroll', () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(() => {
+      const mid = colEl.scrollTop + colEl.clientHeight / 2;
+      let closest = null, minDist = Infinity;
+      colEl.querySelectorAll('.time-scroll-item:not([style*="hidden"])').forEach(el => {
+        const dist = Math.abs(el.offsetTop + el.offsetHeight / 2 - colEl.offsetTop - mid);
+        if (dist < minDist) { minDist = dist; closest = el; }
+      });
+      if (closest) onChange(closest.textContent);
+    }, 80);
+  }, { passive: true });
+}
+
+const HOURS = Array.from({length:24}, (_,i) => String(i).padStart(2,'0'));
+const MINS  = Array.from({length:60}, (_,i) => String(i).padStart(2,'0'));
+
+function initTimePicker(prefix, getTime, setTime) {
+  const wrap    = document.getElementById(prefix + '-time-wrap');
+  const hourCol = document.getElementById(prefix + '-hour-col');
+  const minCol  = document.getElementById(prefix + '-min-col');
+  const clearBtn = document.getElementById(prefix + '-time-clear');
+  const toggleBtn = document.getElementById(prefix + '-time-toggle');
+
+  function rebuild() {
+    const t = getTime();
+    const h = t ? t.split(':')[0] : '08';
+    const m = t ? t.split(':')[1] : '00';
+    buildScrollCol(hourCol, HOURS, h, newH => {
+      const cur = getTime() || '08:00';
+      setTime(newH + ':' + cur.split(':')[1]);
+      rebuild();
+    });
+    buildScrollCol(minCol, MINS, m, newM => {
+      const cur = getTime() || '08:00';
+      setTime(cur.split(':')[0] + ':' + newM);
+      rebuild();
+    });
+  }
+
+  clearBtn.addEventListener('click', () => {
+    setTime(null);
+    wrap.classList.remove('show');
+    if (toggleBtn) toggleBtn.style.display = '';
+  });
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      setTime(getTime() || '08:00');
+      wrap.classList.add('show');
+      toggleBtn.style.display = 'none';
+      rebuild();
+    });
+  }
+
+  return {
+    // Chamado quando a data muda. Só exibe o picker automaticamente se já
+    // houver um horário definido (ex: editando tarefa que já tinha horário).
+    // Caso contrário, mantém escondido e mostra o botão "+ Adicionar horário".
+    show: (timeVal, hasDate = true) => {
+      if (timeVal) {
+        setTime(timeVal);
+        wrap.classList.add('show');
+        if (toggleBtn) toggleBtn.style.display = 'none';
+        rebuild();
+      } else {
+        wrap.classList.remove('show');
+        if (toggleBtn) toggleBtn.style.display = hasDate ? '' : 'none';
+      }
+    }, hide: () => {
+      wrap.classList.remove('show');
+      if (toggleBtn) toggleBtn.style.display = 'none';
+    }, rebuild };
+}
+
+// Add modal time picker
+let selTime = null;
+const addTimePicker = initTimePicker('modal', () => selTime, (v) => { selTime = v; updateDatePreview('modal'); });
+
+// Edit modal time picker  
+let editSelTime = null;
+const editTimePicker = initTimePicker('edit', () => editSelTime, (v) => { editSelTime = v; updateDatePreview('edit'); });
+
+function weekdayName(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  const NAMES = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  return NAMES[dow];
+}
+
+function updateDatePreview(prefix) {
+  const isEdit = prefix === 'edit';
+  const date = isEdit ? editSelDate : selDate;
+  const time = isEdit ? editSelTime : selTime;
+  const previewEl = document.getElementById(prefix + '-date-preview');
+  if (date || time) {
+    let label = date ? formatDateLabel(date) : '';
+    if (date) label += ` (${weekdayName(date)})`;
+    if (time) label += (label ? ' - ' : '') + time;
+    previewEl.textContent = label;
+    previewEl.style.display = '';
+  } else {
+    previewEl.style.display = 'none';
+  }
+}
+
+const modalDateInput   = document.getElementById('modal-date-input');
+const modalDatePreview = document.getElementById('modal-date-preview');
+const dateChipToday    = document.getElementById('date-chip-today');
+const dateChipTomorrow = document.getElementById('date-chip-tomorrow');
+const dateChipCustom   = document.getElementById('date-chip-custom');
+const dateChipClear    = document.getElementById('date-chip-clear');
+
+function setSelDate(val) {
+  selDate = val;
+  [dateChipToday, dateChipTomorrow, dateChipCustom].forEach(c => c.classList.remove('selected'));
+  if (!val) { /* nada */ }
+  else if (val === todayStr()) dateChipToday.classList.add('selected');
+  else if (val === tomorrowStr()) dateChipTomorrow.classList.add('selected');
+  else dateChipCustom.classList.add('selected');
+
+  if (val) {
+    dateChipClear.style.display = '';
+    addTimePicker.show(selTime, true);
+  } else {
+    dateChipClear.style.display = 'none';
+    selTime = null;
+    addTimePicker.hide();
+  }
+  updateDatePreview('modal');
+}
+
+dateChipToday.onclick    = () => setSelDate(todayStr());
+dateChipTomorrow.onclick = () => setSelDate(tomorrowStr());
+dateChipCustom.onclick = () => {
+  modalDateInput.value = '';
+  modalDateInput.style.display = 'block';
+  setTimeout(() => { modalDateInput.focus(); modalDateInput.click(); }, 50);
+};
+dateChipClear.onclick = () => setSelDate(null);
+modalDateInput.addEventListener('change', () => {
+  if (modalDateInput.value) { setSelDate(modalDateInput.value); modalDateInput.style.display = 'none'; }
+});
+modalDateInput.addEventListener('input', () => {
+  if (modalDateInput.value) { setSelDate(modalDateInput.value); modalDateInput.style.display = 'none'; }
+});
+
+// ── PLAY MODE: percorre tarefas pendentes de uma categoria, uma por vez ──
+const playBackdrop      = document.getElementById('play-modal-backdrop');
+const playCatNameEl     = document.getElementById('play-cat-name');
+const playBody          = document.getElementById('play-body');
+const playProgressFill  = document.getElementById('play-progress-fill');
+const playProgressLabel = document.getElementById('play-progress-label');
+const playCloseBtn      = document.getElementById('play-close-btn');
+
+let playCat = null;
+let playQueue = []; // ids das tarefas pendentes na rodada atual
+let playSkipped = []; // ids das tarefas puladas nesta rodada (voltam se você escolher "rever")
+
+// No play, aparecem tarefas sem data, atrasadas, de hoje ou de amanhã
+function isPlayable(t) {
+  return !t.dueDate || t.dueDate <= tomorrowStr();
+}
+
+function openPlayMode(cat) {
+  playCat = cat;
+  const pendingInCat = data.tasks.filter(t => t.cat === cat && !t.done && isPlayable(t));
+  playQueue = orderedPending(cat, pendingInCat).map(t => t.id);
+  playSkipped = [];
+  playCatNameEl.textContent = cat;
+  playBackdrop.classList.add('show');
+  renderPlayCurrent();
+}
+
+function closePlayMode() {
+  playBackdrop.classList.remove('show');
+  playCat = null;
+  playQueue = [];
+  playSkipped = [];
+  save();
+  updateProgressBars();
+  renderGrid();
+}
+
+playCloseBtn.addEventListener('click', closePlayMode);
+
+function renderPlayCurrent() {
+  // Remove da fila quaisquer ids que não existam mais ou já foram concluídos por outra via
+  playQueue = playQueue.filter(id => {
+    const t = data.tasks.find(x => x.id === id);
+    return t && !t.done && isPlayable(t);
+  });
+
+  playSkipped = playSkipped.filter(id => {
+    const t = data.tasks.find(x => x.id === id);
+    return t && !t.done && isPlayable(t);
+  });
+
+  const totalInCat = data.tasks.filter(t => t.cat === playCat && isPlayable(t)).length;
+  const doneInCat  = data.tasks.filter(t => t.cat === playCat && isPlayable(t) && t.done).length;
+  playProgressFill.style.width = totalInCat > 0 ? ((doneInCat / totalInCat) * 100).toFixed(1) + '%' : '0%';
+  playProgressLabel.textContent = `${doneInCat} de ${totalInCat} concluídas`;
+
+  playBody.innerHTML = '';
+
+  if (playQueue.length === 0) {
+    const hasSkipped = playSkipped.length > 0;
+    const overlay = document.createElement('div');
+    overlay.className = 'play-end-overlay';
+    overlay.innerHTML = `
+      <div class="play-end-card">
+        <div class="play-end-title">acabou :)</div>
+        <div class="play-end-sub">${hasSkipped
+          ? (playSkipped.length === 1 ? 'Sobrou 1 tarefa que você pulou.' : `Sobraram ${playSkipped.length} tarefas que você pulou.`)
+          : 'Tudo certo por aqui.'}</div>
+        <div class="complete-btn-row">
+          ${hasSkipped ? '<button class="complete-reschedule-btn" id="play-end-review">rever</button>' : ''}
+          <button class="complete-confirm-btn" id="play-end-close">fechar</button>
+        </div>
+      </div>`;
+    playBody.appendChild(overlay);
+    overlay.querySelector('#play-end-close').onclick = closePlayMode;
+    const reviewBtn = overlay.querySelector('#play-end-review');
+    if (reviewBtn) reviewBtn.onclick = () => {
+      playQueue = playSkipped.slice();
+      playSkipped = [];
+      renderPlayCurrent();
+    };
+    return;
+  }
+
+  const taskId = playQueue[0];
+  const task = data.tasks.find(x => x.id === taskId);
+  if (!task) { renderPlayCurrent(); return; }
+
+  const tapZone = document.createElement('div');
+  tapZone.className = 'play-tap-zone';
+
+  const card = document.createElement('div');
+  card.className = 'play-task-card entering';
+
+  if (task.photo) {
+    const photoWrap = document.createElement('div');
+    photoWrap.className = 'play-task-photo';
+    if (task.photoType === 'video') {
+      photoWrap.innerHTML = `<video src="${task.photo}" muted playsinline autoplay loop></video>`;
+    } else {
+      photoWrap.innerHTML = `<img src="${task.photo}" alt="">`;
+    }
+    card.appendChild(photoWrap);
+  }
+
+  if (task.dueDate) {
+    const dateEl = document.createElement('div');
+    const overdueDays = -daysDiffFromToday(task.dueDate);
+    const isLate = overdueDays > 0;
+    dateEl.className = 'play-task-date' + ((isToday(task.dueDate) || isLate) ? ' is-today' : '');
+    let label;
+    if (isLate) label = 'ATRASADA · HÁ ' + overdueDays + (overdueDays === 1 ? ' DIA' : ' DIAS');
+    else label = isToday(task.dueDate) ? 'HOJE' : 'AMANHÃ';
+    dateEl.textContent = label + (task.dueTime ? ' · ' + task.dueTime : '');
+    card.appendChild(dateEl);
+  }
+
+  const textEl = document.createElement('div');
+  textEl.className = 'play-task-text';
+  textEl.textContent = task.text;
+  card.appendChild(textEl);
+
+  tapZone.appendChild(card);
+  tapZone.addEventListener('click', () => completePlayTask(task.id, tapZone, card));
+  playBody.appendChild(tapZone);
+
+  {
+    const skipBar = document.createElement('div');
+    skipBar.className = 'play-skip-bar';
+    skipBar.textContent = 'PULAR POR AGORA';
+    skipBar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      skipPlayTask();
+    });
+    playBody.appendChild(skipBar);
+  }
+}
+
+function completePlayTask(taskId, tapZone, cardEl) {
+  const task = data.tasks.find(x => x.id === taskId);
+  if (!task) return;
+  // Tarefa com data: pergunta se quer concluir ou remarcar
+  if (task.dueDate) {
+    askCompleteOrReschedule(task, () => performPlayComplete(task, tapZone, cardEl));
+    return;
+  }
+  performPlayComplete(task, tapZone, cardEl);
+}
+
+function performPlayComplete(task, tapZone, cardEl) {
+  pushUndo('Concluir: ' + task.text.slice(0, 30));
+  task.done = true;
+  task.doneAt = Date.now();
+  save();
+  updateProgressBars();
+
+  tapZone.classList.add('flash-green');
+  cardEl.classList.remove('entering');
+  cardEl.classList.add('completing');
+  setTimeout(() => {
+    playQueue.shift();
+    renderPlayCurrent();
+  }, 380);
+}
+
+function skipPlayTask() {
+  if (playQueue.length === 0) return;
+  playSkipped.push(playQueue.shift());
+  renderPlayCurrent();
+}
+
+function openTaskModal(prefill = '', forceCat = null) {
+  modalMode = 'task';
+  modalTitleEl.textContent = 'Adicionar tarefa';
+  taskInEl.style.display = ''; catLabelEl.style.display = '';
+  modalBtn.textContent = 'Adicionar';
+  taskInEl.value = prefill;
+  if (forceCat) {
+    selCat = forceCat;
+  } else {
+    const curCat = allCats()[cur];
+    selCat = (curCat && curCat !== TODAS) ? curCat : (data.cats[0] || null);
+  }
+  newCatRow.style.display = 'none'; newCatIn.value = '';
+  setSelDate(null);
+  updateQuickEmojiSelection(taskInEl, modalEmojiQuickRow);
+  renderChips(); modalEl.classList.add('show');
+  setTimeout(() => {
+    taskInEl.style.height = 'auto';
+    taskInEl.style.height = taskInEl.scrollHeight + 'px';
+  }, 280);
+}
+function openNewCatModal() {
+  modalMode = 'newcat';
+  modalTitleEl.textContent = 'Nova categoria';
+  taskInEl.style.display = 'none'; catLabelEl.style.display = 'none';
+  modalCatsEl.innerHTML = ''; modalBtn.textContent = 'Criar';
+  newCatRow.style.display = 'flex'; newCatIn.value = '';
+  modalEl.classList.add('show');
+  setTimeout(() => newCatIn.focus(), 280);
+}
+function renderChips() {
+  modalCatsEl.innerHTML = '';
+  // normal cats
+  data.cats.forEach(c => {
+    const ch = document.createElement('button');
+    ch.className = 'modal-cat-chip' + (c === selCat ? ' selected' : '');
+    ch.textContent = c;
+    ch.onclick = () => { selCat = c; renderChips(); };
+    modalCatsEl.appendChild(ch);
+  });
+  const plus = document.createElement('button');
+  plus.className = 'modal-cat-chip new-chip'; plus.textContent = '+ Nova';
+  plus.onclick = () => {
+    const open = newCatRow.style.display !== 'none';
+    newCatRow.style.display = open ? 'none' : 'flex';
+    if (!open) setTimeout(() => newCatIn.focus(), 80);
+  };
+  modalCatsEl.appendChild(plus);
+}
+newCatOk.onclick = () => {
+  const name = newCatIn.value.trim(); if (!name) return;
+  if (!data.cats.includes(name)) { data.cats.push(name); save(); }
+  selCat = name; newCatIn.value = ''; newCatRow.style.display = 'none'; renderChips();
+};
+newCatIn.addEventListener('keydown', e => { if (e.key === 'Enter') newCatOk.click(); });
+modalBtn.onclick = () => {
+  if (renameMode) {
+    const newName = newCatIn.value.trim();
+    if (newName && newName !== renamingCat && !data.cats.includes(newName)) {
+      data.cats = data.cats.map(c => c === renamingCat ? newName : c);
+      data.tasks = data.tasks.map(t => t.cat === renamingCat ? { ...t, cat: newName } : t);
+      if (data.catAvatars[renamingCat]) {
+        data.catAvatars[newName] = data.catAvatars[renamingCat];
+        delete data.catAvatars[renamingCat];
+      }
+      save();
+    }
+    renameMode = false; renamingCat = null;
+    closeModal(); render(); return;
+  }
+  if (modalMode === 'newcat') {
+    const name = newCatIn.value.trim();
+    if (name && !data.cats.includes(name)) { data.cats.push(name); save(); cur = allCats().indexOf(name); }
+    closeModal(); render(); return;
+  }
+  const text = taskInEl.value.trim(); if (!text) { taskInEl.focus(); return; }
+  if (!selDate && !QUICK_EMOJIS.some(e => text.startsWith(e))) {
+    shakeEmojiRow(modalEmojiQuickRow);
+    return;
+  }
+  if (!selCat) return;
+  const newId = uid();
+  const catTasks = data.tasks.filter(t => t.cat === selCat);
+  const maxOrder = addPinActive ? Math.max(...catTasks.map(t => t.order || 0), 0) + 100000 : Date.now();
+  data.tasks.unshift({ id:newId, text, cat:selCat, done:false, photo:null, doneAt:null, order:maxOrder, dueDate: selDate || null, dueTime: selTime || null, justAdded:true });
+  save(); cur = allCats().indexOf(selCat); closeModal(); render();
+  if (selDate) scrollToTask(newId);
+};
+function closeModal() { modalEl.classList.remove('show'); newTaskIn.value = ''; taskInEl.style.height = 'auto'; renameMode = false; renamingCat = null; selTime = null; setSelDate(null); modalDateInput.style.display = 'none'; addPinActive = false; setPinStyle(modalPinBtn, false); }
+modalEl.addEventListener('click', e => { if (e.target === modalEl) closeModal(); });
+taskInEl.addEventListener('keydown', e => { if (e.key === 'Enter') e.stopPropagation(); });
+taskInEl.addEventListener('input', () => {
+  taskInEl.style.height = 'auto';
+  taskInEl.style.height = taskInEl.scrollHeight + 'px';
+  updateQuickEmojiSelection(taskInEl, modalEmojiQuickRow);
+});
+
+// ── MOVER CATEGORIA (última tocada / atual) ──
+const catMoveLeftBtn  = document.getElementById('cat-move-left-btn');
+const catMoveRightBtn = document.getElementById('cat-move-right-btn');
+
+function moveCurrentCat(direction) {
+  const cats = allCats();
+  const targetCat = (lastTouchedCat && cats.includes(lastTouchedCat)) ? lastTouchedCat : cats[cur];
+  const from = cats.indexOf(targetCat);
+  if (from === -1) return;
+  const to = from + direction;
+  if (to < 0 || to >= cats.length) {
+    showDoneToast(direction < 0 ? 'Já é a primeira categoria' : 'Já é a última categoria', null, '#e84040');
+    return;
+  }
+  pushUndo('Mover categoria: ' + cats[from]);
+  const tmp = data.cats[from];
+  data.cats[from] = data.cats[to];
+  data.cats[to] = tmp;
+  if (cur === from) cur = to; else if (cur === to) cur = from;
+  save();
+  render();
+  if (gridMode) renderGrid();
+  showDoneToast('Categoria "' + tmp + '" movida!');
+}
+catMoveLeftBtn.addEventListener('click', () => moveCurrentCat(-1));
+catMoveRightBtn.addEventListener('click', () => moveCurrentCat(1));
+
+function handleAdd() {
+  const text = newTaskIn.value.trim();
+  if (text) {
+    const cat = allCats()[cur];
+    data.tasks.unshift({ id:uid(), text, cat, done:false, photo:null, doneAt:null, order:Date.now(), justAdded:true });
+    save(); newTaskIn.value = ''; newTaskIn.style.height = 'auto'; render();
+  } else {
+    openTaskModal('');
+  }
+}
+
+addBtn.onclick = () => {
+  // Botão flutuante: sempre abre com categoria TAREFAS selecionada
+  openTaskModal('', 'TAREFAS');
+};
+newTaskIn.addEventListener('input', () => {
+  newTaskIn.style.height = 'auto';
+  newTaskIn.style.height = newTaskIn.scrollHeight + 'px';
+});
+clearBtn.onclick = () => {
+  const cat = allCats()[cur];
+  const doneTasks = data.tasks.filter(t => t.cat === cat && t.done);
+  if (!doneTasks.length) { showDoneToast('Nenhuma tarefa concluída para limpar'); return; }
+  if (cat === 'TAREFAS') {
+    if (!confirm('Limpar todas as tarefas concluídas de TAREFAS?')) return;
+    if (!confirm('Tem certeza? Você pode desfazer depois com o botão Desfazer.')) return;
+  }
+  pushUndo('Limpar concluídas de ' + cat);
+  data.tasks = data.tasks.map(t => t.cat === cat ? { ...t, done:false, doneAt:null } : t);
+  save(); render();
+};
+gradeBtn.onclick = () => {
+  gradeMode = !gradeMode;
+  gradeBtn.classList.toggle('active', gradeMode);
+  render();
+};
+
+// ── EDITAR TAREFA ──
+// ── EDIT DATE PICKER ──
+const editDateInput      = document.getElementById('edit-date-input');
+const editDatePreview    = document.getElementById('edit-date-preview');
+const editDateChipToday  = document.getElementById('edit-date-chip-today');
+const editDateChipTomorrow = document.getElementById('edit-date-chip-tomorrow');
+const editDateChipCustom = document.getElementById('edit-date-chip-custom');
+const editDateChipClear  = document.getElementById('edit-date-chip-clear');
+let editSelDate = null;
+
+function setEditSelDate(val) {
+  editSelDate = val;
+  [editDateChipToday, editDateChipTomorrow, editDateChipCustom].forEach(c => c.classList.remove('selected'));
+  if (!val) { /* nada */ }
+  else if (val === todayStr()) editDateChipToday.classList.add('selected');
+  else if (val === tomorrowStr()) editDateChipTomorrow.classList.add('selected');
+  else editDateChipCustom.classList.add('selected');
+  if (val) {
+    editDateChipClear.style.display = '';
+    editTimePicker.show(editSelTime, true);
+  } else {
+    editDateChipClear.style.display = 'none';
+    editSelTime = null;
+    editTimePicker.hide();
+  }
+  updateDatePreview('edit');
+}
+editDateChipToday.onclick    = () => setEditSelDate(todayStr());
+editDateChipTomorrow.onclick = () => setEditSelDate(tomorrowStr());
+editDateChipCustom.onclick   = () => {
+  editDateInput.value = '';
+  editDateInput.style.display = 'block';
+  setTimeout(() => { editDateInput.focus(); editDateInput.click(); }, 50);
+};
+editDateChipClear.onclick = () => setEditSelDate(null);
+editDateInput.addEventListener('change', () => {
+  if (editDateInput.value) { setEditSelDate(editDateInput.value); editDateInput.style.display = 'none'; }
+});
+editDateInput.addEventListener('input', () => {
+  if (editDateInput.value) { setEditSelDate(editDateInput.value); editDateInput.style.display = 'none'; }
+});
+
+// ── EDIT MODE STATE ──
+let editMode = false;
+
+function enterEditMode() {
+  editMode = true;
+  editBtn.classList.add('edit-mode-active');
+  // Highlight all tasks to indicate they're selectable
+  document.querySelectorAll('.task').forEach(el => el.classList.add('edit-mode-hover'));
+  showDoneToast('Clique numa tarefa para editá-la', null, '#d97706');
+}
+
+function exitEditMode() {
+  editMode = false;
+  editBtn.classList.remove('edit-mode-active');
+  document.querySelectorAll('.task').forEach(el => el.classList.remove('edit-mode-hover'));
+}
+
+function openEditModalForTask(taskId) {
+  const task = data.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  lastTouchedId = taskId;
+  editTaskIn.value = task.text;
+  renderEditPhotoZone(task);
+  editSelTime = task.dueTime || null;
+  setEditSelDate(task.dueDate || null);
+  editDateInput.style.display = 'none';
+  editPinActive = false;
+  setPinStyle(editPinBtn, false);
+  updateQuickEmojiSelection(editTaskIn, editEmojiQuickRow);
+  editModalEl.classList.add('show');
+  setTimeout(() => {
+    editTaskIn.style.height = 'auto';
+    editTaskIn.style.height = editTaskIn.scrollHeight + 'px';
+  }, 280);
+  exitEditMode();
+}
+
+editBtn.onclick = () => {
+  if (editMode) {
+    exitEditMode();
+  } else {
+    enterEditMode();
+  }
+};
+editConfirmBtn.onclick = () => {
+  const task = data.tasks.find(t => t.id === lastTouchedId);
+  if (!task) return;
+  const newText = editTaskIn.value.trim();
+  if (!newText) { editTaskIn.focus(); return; }
+  task.text = newText;
+  task.dueDate = editSelDate || null;
+  task.dueTime = editSelTime || null;
+  if (editPinActive) {
+    const catTasks = data.tasks.filter(t => t.cat === task.cat);
+    task.order = Math.max(...catTasks.map(t => t.order || 0), 0) + 100000;
+  }
+  const scrollId = task.id;
+
+  // Salva posição de scroll antes de re-renderizar
+  const gh = document.getElementById('grid-home');
+  const gridScroll = gh ? gh.scrollTop : 0;
+  const kanbanScrolls = {};
+  document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => { kanbanScrolls[b.dataset.cat] = b.scrollTop; });
+  const pageScrolls = {};
+  document.querySelectorAll('.page').forEach((p, i) => { pageScrolls[i] = p.scrollTop; });
+
+  save(); render();
+  if (playCat) renderPlayCurrent(); // remarcou no play: some se a nova data não for hoje/amanhã
+
+  // Restaura posição de scroll após re-renderizar
+  requestAnimationFrame(() => {
+    const gh2 = document.getElementById('grid-home');
+    if (gh2 && gridScroll) gh2.scrollTop = gridScroll;
+    document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+      if (kanbanScrolls[b.dataset.cat]) b.scrollTop = kanbanScrolls[b.dataset.cat];
+    });
+    document.querySelectorAll('.page').forEach((p, i) => { if (pageScrolls[i]) p.scrollTop = pageScrolls[i]; });
+  });
+
+  if (editSelDate) scrollToTask(scrollId);
+  editModalEl.classList.remove('show');
+  editSelTime = null;
+  setEditSelDate(null);
+  editDateInput.style.display = 'none';
+  editPinActive = false;
+  setPinStyle(editPinBtn, false);
+};
+editTaskIn.addEventListener('keydown', e => { if (e.key === 'Enter') e.stopPropagation(); });
+editTaskIn.addEventListener('input', () => {
+  editTaskIn.style.height = 'auto';
+  editTaskIn.style.height = editTaskIn.scrollHeight + 'px';
+  updateQuickEmojiSelection(editTaskIn, editEmojiQuickRow);
+});
+editModalEl.addEventListener('click', e => {
+  if (e.target === editModalEl) {
+    exitEditMode();
+    editModalEl.classList.remove('show');
+    setEditSelDate(null);
+    editDateInput.style.display = 'none';
+  }
+});
+
+// ── EXCLUIR TAREFA ──
+let deleteMode = false;
+
+function enterDeleteMode() {
+  deleteMode = true;
+  deleteBtn.classList.add('delete-mode-active');
+  document.querySelectorAll('.task').forEach(el => el.classList.add('delete-mode-hover'));
+  showDoneToast('Clique numa tarefa para excluí-la', null, '#e84040');
+}
+
+function exitDeleteMode() {
+  deleteMode = false;
+  deleteBtn.classList.remove('delete-mode-active');
+  document.querySelectorAll('.task').forEach(el => el.classList.remove('delete-mode-hover'));
+}
+
+function openDeleteModalForTask(taskId) {
+  const task = data.tasks.find(t => t.id === taskId);
+  if (!task) return;
+  lastTouchedId = taskId;
+  deleteStep = 1;
+  deleteTaskNameEl.textContent = task.text;
+  deleteModalEl.classList.add('show');
+  exitDeleteMode();
+}
+
+let deleteStep = 0;
+deleteBtn.onclick = () => {
+  if (deleteMode) {
+    exitDeleteMode();
+  } else {
+    enterDeleteMode();
+  }
+};
+deleteCancelBtn.onclick = () => {
+  deleteStep = 0;
+  deleteModalEl.classList.remove('show');
+};
+deleteConfirmBtn.onclick = () => {
+  if (deleteStep === 1) {
+    deleteStep = 2;
+    deleteConfirmBtn.textContent = 'Sim, excluir definitivamente';
+    deleteConfirmBtn.style.background = '#b81c1c';
+    return;
+  }
+  if (deleteStep === 2) {
+    data.tasks = data.tasks.filter(t => t.id !== lastTouchedId);
+    lastTouchedId = null;
+    save(); render();
+    deleteStep = 0;
+    deleteConfirmBtn.textContent = 'Excluir';
+    deleteConfirmBtn.style.background = '';
+    deleteModalEl.classList.remove('show');
+  }
+};
+deleteModalEl.addEventListener('click', e => {
+  if (e.target === deleteModalEl) {
+    deleteStep = 0;
+    deleteConfirmBtn.textContent = 'Excluir';
+    deleteConfirmBtn.style.background = '';
+    deleteModalEl.classList.remove('show');
+  }
+});
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+
+// ── CAT CONTEXT MENU ──
+const catMenuBackdrop = document.getElementById('cat-menu-backdrop');
+const catMenu = document.getElementById('cat-menu');
+const catMenuRename = document.getElementById('cat-menu-rename');
+const catMenuDelete = document.getElementById('cat-menu-delete');
+let menuTargetCat = null;
+let menuTargetTabEl = null;
+let longPressTimer = null;
+
+function openCatMenu(catName, tabEl) {
+  menuTargetCat = catName;
+  menuTargetTabEl = tabEl;
+  // Position menu below the tab
+  const rect = tabEl.getBoundingClientRect();
+  catMenu.style.left = Math.min(rect.left, window.innerWidth - 200) + 'px';
+  catMenu.style.top = (rect.bottom + 8) + 'px';
+  catMenuBackdrop.classList.add('show');
+}
+
+function closeCatMenu() {
+  catMenuBackdrop.classList.remove('show');
+  menuTargetCat = null;
+  menuTargetTabEl = null;
+}
+
+catMenuBackdrop.addEventListener('click', e => {
+  if (e.target === catMenuBackdrop) closeCatMenu();
+});
+
+catMenuDelete.addEventListener('click', () => {
+  if (!menuTargetCat) return;
+  // Remove category, its tasks and its avatar
+  data.cats = data.cats.filter(c => c !== menuTargetCat);
+  data.tasks = data.tasks.filter(t => t.cat !== menuTargetCat);
+  delete data.catAvatars[menuTargetCat];
+  save();
+  cur = Math.max(0, Math.min(cur, allCats().length - 1));
+  closeCatMenu();
+  render();
+});
+
+catMenuRename.addEventListener('click', () => {
+  if (!menuTargetCat) return;
+  const oldName = menuTargetCat;
+  closeCatMenu();
+  // Open the existing new-cat modal reused for renaming
+  renameMode = true;
+  renamingCat = oldName;
+  modalTitleEl.textContent = 'Renomear categoria';
+  taskInEl.style.display = 'none'; catLabelEl.style.display = 'none';
+  modalCatsEl.innerHTML = '';
+  newCatRow.style.display = 'flex';
+  newCatIn.value = oldName;
+  modalBtn.textContent = 'Renomear';
+  modalEl.classList.add('show');
+  setTimeout(() => { newCatIn.focus(); newCatIn.select(); }, 280);
+});
+
+// Attach long-press to tabs inside renderTabs
+
+// ── EXPORT / IMPORT ──
+const exportBtn     = document.getElementById('export-btn');
+
+// ── TODAY DISPLAY BUTTON ──
+const todayDisplayBtn = document.getElementById('today-display-btn');
+const MONTHS_FULL = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const DAYS_FULL   = ['DOMINGO','SEGUNDA','TERÇA','QUARTA','QUINTA','SEXTA','SÁBADO'];
+function updateTodayBtn() {
+  const now = new Date();
+  const day   = now.getDate();
+  const month = MONTHS_FULL[now.getMonth()];
+  const week  = DAYS_FULL[now.getDay()];
+  todayDisplayBtn.innerHTML = `<span class="td-day">${day} DE ${month}</span><span class="td-month">${week}</span>`;
+}
+updateTodayBtn();
+setInterval(updateTodayBtn, 60 * 1000);
+
+// Long press → revela/oculta todos os 🖤
+let heartsRevealed = false;
+let todayLpTimer = null;
+todayDisplayBtn.style.pointerEvents = 'auto';
+todayDisplayBtn.style.cursor = 'pointer';
+todayDisplayBtn.addEventListener('touchstart', () => {
+  todayLpTimer = setTimeout(() => toggleHearts(), 500);
+}, { passive: true });
+todayDisplayBtn.addEventListener('touchend', () => clearTimeout(todayLpTimer), { passive: true });
+todayDisplayBtn.addEventListener('touchmove', () => clearTimeout(todayLpTimer), { passive: true });
+todayDisplayBtn.addEventListener('mousedown', () => { todayLpTimer = setTimeout(() => toggleHearts(), 500); });
+todayDisplayBtn.addEventListener('mouseup', () => clearTimeout(todayLpTimer));
+
+function toggleHearts() {
+  heartsRevealed = !heartsRevealed;
+  // Aplica em todas as tarefas pendentes visíveis na página atual
+  const page = document.querySelectorAll('.page')[cur];
+  if (!page) return;
+  page.querySelectorAll('.task:not(.done)').forEach(el => {
+    el.classList.toggle('hearts-revealed', heartsRevealed);
+  });
+  // Feedback visual no botão
+  todayDisplayBtn.style.background = heartsRevealed ? '#1a1a1a' : '';
+  todayDisplayBtn.style.color = heartsRevealed ? '#fff' : '';
+  todayDisplayBtn.querySelector('.td-month').style.color = heartsRevealed ? 'rgba(255,255,255,0.6)' : '';
+}
+const emojiSortBtn  = document.getElementById('emoji-sort-btn');
+const emojiSortPanel = document.getElementById('emoji-sort-panel');
+
+emojiSortBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  emojiSortPanel.classList.toggle('show');
+});
+document.addEventListener('click', e => {
+  if (!emojiSortPanel.contains(e.target) && e.target !== emojiSortBtn) {
+    emojiSortPanel.classList.remove('show');
+  }
+});
+
+// ── FILTRAR POR EMOJI (popup com resultados) ──
+const emojiFilterBtn      = document.getElementById('emoji-filter-btn');
+const emojiFilterModal    = document.getElementById('emoji-filter-modal-backdrop');
+const filterResultsLabel  = document.getElementById('filter-results-label');
+const filterResultsList   = document.getElementById('filter-results-list');
+let activeFilterEmoji = null;
+
+function renderFilterResults() {
+  filterResultsList.innerHTML = '';
+  if (!activeFilterEmoji) { filterResultsLabel.textContent = 'Escolha um emoji acima'; return; }
+  const matches = data.tasks.filter(t => !t.done && (
+    activeFilterEmoji === '📅' ? !!t.dueDate : t.text.includes(activeFilterEmoji)
+  ));
+  // Ordem cronológica: com data primeiro (mais próxima primeiro, considerando a hora), sem data no final
+  matches.sort((a, b) => {
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    if (!a.dueDate && !b.dueDate) return 0;
+    const aKey = a.dueDate + 'T' + (a.dueTime || '00:00');
+    const bKey = b.dueDate + 'T' + (b.dueTime || '00:00');
+    return aKey.localeCompare(bKey);
+  });
+  filterResultsLabel.textContent = `${matches.length} tarefa${matches.length === 1 ? '' : 's'} encontrada${matches.length === 1 ? '' : 's'}`;
+  if (!matches.length) {
+    const empty = document.createElement('div');
+    empty.className = 'filter-empty';
+    empty.textContent = 'Nenhuma tarefa encontrada.';
+    filterResultsList.appendChild(empty);
+    return;
+  }
+  matches.forEach(t => {
+    const row = document.createElement('div');
+    row.className = 'filter-result-row';
+    const circle = document.createElement('div');
+    circle.className = 'filter-result-check';
+    const textCol = document.createElement('div');
+    textCol.style.cssText = 'display:flex; flex-direction:column; gap:3px; min-width:0;';
+    const catTag = document.createElement('span');
+    catTag.className = 'filter-result-cat';
+    catTag.textContent = t.cat;
+    const label = document.createElement('span');
+    label.innerHTML = linkifyText(t.text);
+    textCol.appendChild(catTag);
+    textCol.appendChild(label);
+    if (t.dueDate) {
+      const dateTag = document.createElement('span');
+      dateTag.className = 'filter-result-date';
+      dateTag.textContent = formatDateLabel(t.dueDate) + (t.dueTime ? ' · ' + t.dueTime : '');
+      textCol.appendChild(dateTag);
+    }
+    row.appendChild(circle);
+    row.appendChild(textCol);
+    row.addEventListener('click', () => {
+      const task = data.tasks.find(x => x.id === t.id);
+      if (!task) return;
+      const finish = () => {
+        task.done = true;
+        task.doneAt = Date.now();
+        save(); render(); updateProgressBars();
+        renderFilterResults();
+      };
+      if (task.dueDate) {
+        askCompleteOrReschedule(task, finish);
+      } else {
+        finish();
+      }
+    });
+    filterResultsList.appendChild(row);
+  });
+}
+
+emojiFilterBtn.addEventListener('click', () => {
+  activeFilterEmoji = null;
+  document.querySelectorAll('.filter-emoji-big').forEach(b => b.classList.remove('active'));
+  renderFilterResults();
+  emojiFilterModal.classList.add('show');
+});
+emojiFilterModal.addEventListener('click', e => {
+  if (e.target === emojiFilterModal) emojiFilterModal.classList.remove('show');
+});
+document.querySelectorAll('.filter-emoji-big').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeFilterEmoji = btn.dataset.emoji;
+    document.querySelectorAll('.filter-emoji-big').forEach(b => b.classList.toggle('active', b === btn));
+    renderFilterResults();
+  });
+});
+
+// ── PIN TOGGLE ──
+let addPinActive = false;
+let editPinActive = false;
+
+const modalPinBtn = document.getElementById('modal-pin-btn');
+const editPinBtn  = document.getElementById('edit-pin-btn');
+
+const QUICK_EMOJIS = ['📅','🌍','📱','🎒','🏠'];
+function shakeEmojiRow(rowEl) {
+  rowEl.classList.remove('shake');
+  void rowEl.offsetWidth; // força reflow pra reiniciar a animação
+  rowEl.classList.add('shake');
+  setTimeout(() => rowEl.classList.remove('shake'), 420);
+}
+function toggleQuickEmoji(textareaEl, emoji, rowEl) {
+  let val = textareaEl.value;
+  const trimmedStart = val.replace(/^\s+/, '');
+  if (trimmedStart.startsWith(emoji)) {
+    // já tem esse emoji no início — remove
+    val = trimmedStart.slice(emoji.length).replace(/^\s+/, '');
+  } else {
+    // remove qualquer outro emoji rápido que já esteja no início, depois adiciona o novo
+    let stripped = trimmedStart;
+    for (const e of QUICK_EMOJIS) {
+      if (stripped.startsWith(e)) { stripped = stripped.slice(e.length).replace(/^\s+/, ''); break; }
+    }
+    val = emoji + ' ' + stripped;
+  }
+  textareaEl.value = val;
+  textareaEl.style.height = 'auto';
+  textareaEl.style.height = textareaEl.scrollHeight + 'px';
+  updateQuickEmojiSelection(textareaEl, rowEl);
+  textareaEl.focus();
+  const len = textareaEl.value.length;
+  textareaEl.setSelectionRange(len, len);
+}
+function updateQuickEmojiSelection(textareaEl, rowEl) {
+  const trimmedStart = textareaEl.value.replace(/^\s+/, '');
+  rowEl.querySelectorAll('.emoji-quick-btn').forEach(btn => {
+    btn.classList.toggle('selected', trimmedStart.startsWith(btn.dataset.emoji));
+  });
+}
+const modalEmojiQuickRow = document.getElementById('modal-emoji-quick-row');
+const editEmojiQuickRow  = document.getElementById('edit-emoji-quick-row');
+modalEmojiQuickRow.querySelectorAll('.emoji-quick-btn').forEach(btn => {
+  btn.addEventListener('click', () => toggleQuickEmoji(taskInEl, btn.dataset.emoji, modalEmojiQuickRow));
+});
+editEmojiQuickRow.querySelectorAll('.emoji-quick-btn').forEach(btn => {
+  btn.addEventListener('click', () => toggleQuickEmoji(editTaskIn, btn.dataset.emoji, editEmojiQuickRow));
+});
+
+function setPinStyle(btn, active) {
+  btn.style.background = active ? '#1a1a1a' : '';
+  btn.style.color = active ? '#fff' : '';
+  btn.style.borderColor = active ? '#1a1a1a' : '#e8e8e8';
+  btn.textContent = active ? '📌 Fixado no topo' : '📌 Fixar no topo';
+}
+
+modalPinBtn.addEventListener('click', () => {
+  addPinActive = !addPinActive;
+  setPinStyle(modalPinBtn, addPinActive);
+});
+
+editPinBtn.addEventListener('click', () => {
+  editPinActive = !editPinActive;
+  setPinStyle(editPinBtn, editPinActive);
+});
+
+// FIX button (hidden, kept for legacy compatibility)
+document.getElementById('fix-sort-chip').addEventListener('click', e => {
+  e.stopPropagation();
+  if (!lastTouchedId) { emojiSortPanel.classList.remove('show'); return; }
+  const task = data.tasks.find(t => t.id === lastTouchedId);
+  if (!task) { emojiSortPanel.classList.remove('show'); return; }
+  const cat = task.cat;
+  // Give it an order higher than all others in its category
+  const catTasks = data.tasks.filter(t => t.cat === cat);
+  const maxOrder = Math.max(...catTasks.map(t => t.order || 0), 0);
+  task.order = maxOrder + 100000;
+  save(); render();
+  emojiSortPanel.classList.remove('show');
+  showDoneToast('Tarefa fixada no topo!');
+});
+document.querySelectorAll('.emoji-sort-chip').forEach(chip => {
+  chip.addEventListener('click', e => {
+    e.stopPropagation();
+    const emoji = chip.dataset.emoji;
+    const cat = (gridMode && lastSelectedGridCat) ? lastSelectedGridCat : allCats()[cur];
+
+    if (emoji === '📅') {
+      const SPECIAL = ['🌍','📱','🏠','🎒'];
+      const FAR_FUTURE = '9999-12-31';
+      const catPending = data.tasks.filter(t => t.cat === cat && !t.done);
+      const catOthers  = data.tasks.filter(t => !(t.cat === cat && !t.done));
+      // Sem emoji ficam no topo, depois ordena por data
+      catPending.sort((a, b) => {
+        const aNoEmoji = !SPECIAL.some(e => a.text.includes(e)) && !a.dueDate;
+        const bNoEmoji = !SPECIAL.some(e => b.text.includes(e)) && !b.dueDate;
+        if (aNoEmoji && !bNoEmoji) return -1;
+        if (!aNoEmoji && bNoEmoji) return 1;
+        const da = a.dueDate || FAR_FUTURE;
+        const db = b.dueDate || FAR_FUTURE;
+        return da < db ? -1 : da > db ? 1 : 0;
+      });
+      const baseOrder = Date.now() + catPending.length * 1000;
+      catPending.forEach((t, i) => { t.order = baseOrder - i * 100; });
+      data.tasks = [...catPending, ...catOthers];
+    } else {
+      // Pendentes desta categoria que contêm o emoji
+      const matching = data.tasks.filter(t => t.cat === cat && !t.done && t.text.includes(emoji));
+      const others   = data.tasks.filter(t => !(t.cat === cat && !t.done && t.text.includes(emoji)));
+      const baseOrder = Date.now() + matching.length * 1000;
+      matching.forEach((t, i) => { t.order = baseOrder - i * 100; });
+      data.tasks = [...matching, ...others];
+    }
+
+    // Marca a categoria como organizada manualmente, para os comandos
+    // 🏠🎒📅🌍 realmente valerem (sem serem sobrescritos pela ordenação automática por data)
+    if (!data.manualOrderCats) data.manualOrderCats = [];
+    if (!data.manualOrderCats.includes(cat)) data.manualOrderCats.push(cat);
+
+    save(); render();
+    emojiSortPanel.classList.remove('show');
+  });
+});
+const importBtn     = document.getElementById('import-btn');
+const importFileIn  = document.getElementById('import-file-input');
+
+exportBtn.addEventListener('click', async () => {
+  // Tarefas "novas" voltam ao seu lugar normal ao baixar o backup
+  if (clearJustAdded()) { save(); render(); }
+  const payload = JSON.stringify(data, null, 2);
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2,'0');
+  const mm = String(today.getMonth()+1).padStart(2,'0');
+  const yyyy = today.getFullYear();
+  const defaultName = `tarefas___${dd}-${mm}-${yyyy}.json`;
+
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: defaultName,
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(payload);
+      await writable.close();
+      showDoneToast('Backup salvo!');
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        // fallback se der erro
+        const blob = new Blob([payload], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = defaultName; a.click();
+        URL.revokeObjectURL(url);
+      }
+    }
+  } else {
+    // fallback para browsers sem suporte
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = defaultName; a.click();
+    URL.revokeObjectURL(url);
+  }
+});
+
+importBtn.addEventListener('click', () => {
+  importFileIn.value = '';
+  importFileIn.click();
+});
+
+importFileIn.addEventListener('change', () => {
+  const file = importFileIn.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.tasks || !imported.cats) throw new Error('Formato inválido');
+      // Merge: add imported tasks/cats that don't exist yet
+      const LEGACY_CATS = ['Pessoal', 'Trabalho', 'Saúde'];
+      imported.cats.forEach(c => {
+        if (LEGACY_CATS.includes(c) && !imported.tasks.some(t => t.cat === c)) return;
+        if (!data.cats.includes(c)) data.cats.push(c);
+      });
+      const existingIds = new Set(data.tasks.map(t => t.id));
+      imported.tasks.forEach((t, i) => {
+        // Normaliza campos que podem estar ausentes em backups antigos
+        if (!t.id) t.id = uid();
+        if (t.photo === undefined) t.photo = null;
+        if (t.doneAt === undefined) t.doneAt = null;
+        if (t.order === undefined) t.order = Date.now() - i * 1000;
+        if (t.dueDate === undefined) t.dueDate = null;
+        if (t.dueTime === undefined) t.dueTime = null;
+
+        // Não carregar progresso do backup, exceto na categoria fixa TAREFAS
+        if (t.cat !== 'TAREFAS') {
+          t.done = false;
+          t.doneAt = null;
+        }
+
+        if (!existingIds.has(t.id)) {
+          // Tarefa nova: adiciona
+          data.tasks.push(t);
+        } else {
+          // Tarefa já existe: atualiza campos (exceto foto, que pode ser pesada e já estar local)
+          const existing = data.tasks.find(x => x.id === t.id);
+          if (existing) {
+            existing.text    = t.text;
+            existing.cat     = t.cat;
+            existing.done    = t.done;
+            existing.doneAt  = t.doneAt;
+            existing.order   = t.order;
+            existing.dueDate = t.dueDate;
+            existing.dueTime = t.dueTime;
+            // Só sobrescreve foto se o backup tiver uma e o local não tiver
+            if (t.photo && !existing.photo) {
+              existing.photo     = t.photo;
+              existing.photoType = t.photoType;
+            }
+          }
+        }
+      });
+      // Merge avatares
+      if (imported.catAvatars) {
+        if (!data.catAvatars) data.catAvatars = {};
+        Object.entries(imported.catAvatars).forEach(([cat, photo]) => {
+          if (!data.catAvatars[cat]) data.catAvatars[cat] = photo;
+        });
+      }
+      // Tarefas "novas" voltam ao seu lugar normal ao importar
+      clearJustAdded();
+      save();
+      cur = 0;
+      render();
+      showDoneToast('Importação concluída!');
+    } catch(err) {
+      alert('Erro ao importar: arquivo inválido.');
+    }
+  };
+  reader.readAsText(file);
+});
+
+
+
+// ── VISÃO GERAL (tela inicial, 2 colunas) ──
+const vistaBtn        = document.getElementById('vista-btn');
+const gridHome        = document.getElementById('grid-home');
+const catFullscreen   = document.getElementById('cat-fullscreen');
+const catFsBack       = document.getElementById('cat-fs-back');
+const catFsTitle      = document.getElementById('cat-fs-title');
+const catFsBadge      = document.getElementById('cat-fs-badge');
+const catFsList       = document.getElementById('cat-fs-list');
+
+const MAX_PREVIEW = 3;
+let unlockedCat = null; // which category has scroll unlocked
+let lastSelectedGridCat = null; // last category header clicked in grid mode
+let gridMode = true; // starts in grid mode
+
+function setGridMode(on) {
+  gridMode = on;
+  gridHome.style.display = on ? 'block' : 'none';
+  outerEl.style.display  = on ? 'none' : '';
+  const dz = document.getElementById('grid-center-dz');
+  if (dz) dz.style.display = on ? '' : 'none';
+  const avatars = document.getElementById('cat-avatars');
+  const dots    = document.getElementById('dots');
+  if (avatars) avatars.style.display = on ? 'none' : '';
+  if (dots)    dots.style.display    = on ? 'none' : '';
+  const lbl = vistaBtn.querySelector('span');
+  if (lbl) lbl.textContent = on ? 'Categorias' : 'Geral';
+  vistaBtn.classList.toggle('active', on);
+  if (on) renderGrid();
+}
+
+// Button toggles between grid and carousel
+vistaBtn.addEventListener('click', () => setGridMode(!gridMode));
+
+// ── FULLSCREEN for one category ──
+function openCatFullscreen(cat) {
+  lastTouchedCat = cat;
+  catFsTitle.textContent = cat;
+  renderCatFs(cat);
+  catFullscreen.classList.add('show');
+}
+function closeCatFullscreen() {
+  catFullscreen.classList.remove('show');
+  if (gridMode) renderGrid();
+}
+catFsBack.addEventListener('click', closeCatFullscreen);
+
+function renderCatFs(cat) {
+  const tasks = data.tasks.filter(t => t.cat === cat);
+  const pending = tasks.filter(t => !t.done);
+  const done    = tasks.filter(t => t.done).sort((a,b) => (b.doneAt||0)-(a.doneAt||0));
+  catFsBadge.textContent = `${done.length}/${tasks.length}`;
+  catFsList.innerHTML = '';
+
+  orderedPending(cat, pending).forEach(t => catFsList.appendChild(makeFsCard(t, cat)));
+
+  if (done.length) {
+    const sep = document.createElement('div');
+    sep.className = 'cat-fs-done-sep';
+    sep.textContent = 'Concluídas';
+    catFsList.appendChild(sep);
+    done.forEach(t => catFsList.appendChild(makeFsCard(t, cat)));
+  }
+}
+
+function makeFsCard(t, cat) {
+  const card = document.createElement('div');
+  card.className = 'kanban-card' + (t.done ? ' is-done' : '');
+
+  const check = document.createElement('div');
+  check.className = 'kanban-check';
+  check.innerHTML = `<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5 6 4.5 9 10.5 3"/></svg>`;
+
+  const textWrap = document.createElement('div');
+  textWrap.className = 'kanban-text';
+
+  if (t.dueDate && !t.done) {
+    const today = isToday(t.dueDate), tmrw = isTomorrow(t.dueDate);
+    const overdue = t.dueDate < todayStr();
+    if (today || tmrw || overdue) {
+      const badge = document.createElement('div');
+      badge.className = 'kanban-date-badge';
+      badge.style.background = overdue ? '#ffd600' : '#e84040';
+      badge.style.color = overdue ? '#7a5a00' : '#fff';
+      badge.textContent = today ? 'HOJE' : tmrw ? 'AMANHÃ' : 'ATRASADA';
+      textWrap.appendChild(badge);
+    }
+  }
+  const fsTextSpan = document.createElement('span');
+  fsTextSpan.innerHTML = linkifyText(t.text);
+  textWrap.appendChild(fsTextSpan);
+
+  card.appendChild(check);
+  card.appendChild(textWrap);
+  const thumbZone1 = makePhotoThumbIfAny(t);
+  if (thumbZone1) card.appendChild(thumbZone1);
+
+  function performFsToggle(task) {
+    lastTouchedCat = task.cat;
+    if (!task.done) pushUndo('Concluir: ' + task.text.slice(0, 30));
+    task.done = !task.done;
+    task.doneAt = task.done ? Date.now() : null;
+    t.done = task.done; t.doneAt = task.doneAt;
+    save();
+    updateProgressBars();
+    if (task.done) {
+      const taskId = task.id;
+      const taskText = task.text;
+      queueDoneToast(taskText, () => {
+        const t2 = data.tasks.find(x => x.id === taskId);
+        if (!t2) return;
+        t2.done = false;
+        t2.doneAt = null;
+        t2.completedAt = null;
+        save(); updateProgressBars(); renderCatFs(cat);
+      });
+      card.classList.add('completing');
+      setTimeout(() => renderCatFs(cat), 500);
+    } else {
+      card.classList.add('popping');
+      setTimeout(() => renderCatFs(cat), 220);
+    }
+  }
+
+  card.addEventListener('click', () => {
+    const task = data.tasks.find(x => x.id === t.id);
+    if (!task) return;
+    // Tarefa com data sendo concluída (atrasada ou não): pergunta antes
+    if (!task.done && task.dueDate) {
+      askCompleteOrReschedule(task, () => performFsToggle(task));
+      return;
+    }
+    performFsToggle(task);
+  });
+
+  return card;
+}
+
+// ── RENDER 2-COL GRID ──
+function renderGrid() {
+  gridHome.innerHTML = '';
+  const inner = document.createElement('div');
+  inner.id = 'grid-home-inner';
+  gridHome.appendChild(inner);
+
+  const colLeft  = document.createElement('div');
+  const colRight = document.createElement('div');
+  colLeft.className  = 'grid-col';
+  colRight.className = 'grid-col';
+  inner.appendChild(colLeft);
+  inner.appendChild(colRight);
+
+  // Dead zone: a single fixed strip over the center gap between columns.
+  let existingDz = document.getElementById('grid-center-dz');
+  if (!existingDz) {
+    existingDz = document.createElement('div');
+    existingDz.id = 'grid-center-dz';
+    existingDz.className = 'grid-dead-zone';
+    document.body.appendChild(existingDz);
+  }
+  requestAnimationFrame(() => {
+    const innerRect = inner.getBoundingClientRect();
+    const midX = innerRect.left + innerRect.width / 2;
+    existingDz.style.left = (midX - 30) + 'px';
+  });
+  existingDz._lastY = 0;
+  existingDz.addEventListener('touchstart', e => {
+    existingDz._lastY = e.touches[0].clientY;
+  }, { passive: true });
+  existingDz.addEventListener('touchmove', e => {
+    const dy = existingDz._lastY - e.touches[0].clientY;
+    existingDz._lastY = e.touches[0].clientY;
+    gridHome.scrollTop += dy;
+  }, { passive: true });
+  let colIdx = 0;
+
+  const allTasks = data.tasks;
+
+  allCats().forEach(cat => {
+    const catTasks = data.tasks.filter(t => t.cat === cat);
+    const pending  = catTasks.filter(t => !t.done);
+    const done     = catTasks.filter(t => t.done);
+    const total    = catTasks.length;
+    const pct      = total > 0 ? done.length / total : 0;
+
+    const col = document.createElement('div');
+    col.className = 'kanban-col';
+
+    // ── Header (tappable → fullscreen) ──
+    const head = document.createElement('div');
+    head.className = 'kanban-col-head';
+    const arrow = document.createElement('span');
+    arrow.className = 'kanban-col-arrow';
+    arrow.textContent = '↕';
+
+    // Toggle de recolher/expandir a categoria inteira (clique na setinha)
+    const isCollapsed = data.collapsedCats.includes(cat);
+    if (isCollapsed) col.classList.add('collapsed');
+    arrow.textContent = isCollapsed ? '▸' : '▾';
+    arrow.title = isCollapsed ? 'Expandir categoria' : 'Recolher categoria';
+    arrow.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nowCollapsed = col.classList.toggle('collapsed');
+      if (nowCollapsed) {
+        if (!data.collapsedCats.includes(cat)) data.collapsedCats.push(cat);
+        arrow.textContent = '▸';
+        arrow.title = 'Expandir categoria';
+      } else {
+        data.collapsedCats = data.collapsedCats.filter(c => c !== cat);
+        arrow.textContent = '▾';
+        arrow.title = 'Recolher categoria';
+      }
+      save();
+    });
+
+    let colExpanded = false;
+    head.addEventListener('click', () => {
+      const isUnlocked = body.classList.contains('unlocked');
+      // Fecha scroll de todos, depois abre/fecha este
+      document.querySelectorAll('.kanban-col-body').forEach(b => {
+        b.classList.remove('unlocked');
+        // Resetar seta e cor de todas as outras colunas
+        const otherCol = b.closest('.kanban-col');
+        const otherHead = otherCol?.querySelector('.kanban-col-head');
+        const otherArrow = otherCol?.querySelector('.kanban-col-arrow');
+        if (otherCol && b !== body) otherCol.classList.remove('unlocked-col');
+        if (otherHead && b !== body) { otherHead.classList.remove('unlocked-head'); }
+      });
+      if (!isUnlocked) {
+        unlockedCat = cat;
+        lastSelectedGridCat = cat;
+        body.classList.add('unlocked');
+        col.classList.add('unlocked-col');
+        head.classList.add('unlocked-head');
+      } else {
+        unlockedCat = null;
+        col.classList.remove('unlocked-col');
+        head.classList.remove('unlocked-head');
+      }
+    });
+
+    // Long-press on header → confirm zero/clear all tasks in category
+    let lpTimer;
+    head.addEventListener('touchstart', () => {
+      lpTimer = setTimeout(() => {
+        if (confirm(`Resetar todas as tarefas de "${cat}"?`)) {
+          data.tasks.filter(t => t.cat === cat).forEach(t => {
+            t.done = false; t.doneAt = null;
+          });
+          save(); updateProgressBars(); renderGrid();
+        }
+      }, 600);
+    }, { passive: true });
+    head.addEventListener('touchend',   () => clearTimeout(lpTimer), { passive: true });
+    head.addEventListener('touchmove',  () => clearTimeout(lpTimer), { passive: true });
+
+    // name row — apenas o título, centralizado
+    const nameRow = document.createElement('div');
+    nameRow.className = 'kanban-col-name-row';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'kanban-col-name';
+    nameEl.textContent = cat;
+    nameRow.appendChild(nameEl);
+
+    // linha de controles — botões maiores, centralizados
+    const controlsRow = document.createElement('div');
+    controlsRow.className = 'kanban-col-controls-row';
+
+    // + button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'kanban-col-add-btn';
+    addBtn.title = 'Adicionar tarefa em ' + cat;
+    addBtn.innerHTML = '+';
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openTaskModal('', cat);
+    });
+    controlsRow.appendChild(addBtn);
+
+    // ▶ button — open sequential play mode for this category
+    const playBtn = document.createElement('button');
+    playBtn.className = 'kanban-col-play-btn';
+    playBtn.title = 'Reproduzir tarefas de ' + cat;
+    playBtn.innerHTML = '▶';
+    playBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPlayMode(cat);
+    });
+    controlsRow.appendChild(playBtn);
+
+    // seta fica no canto superior direito do cabeçalho
+    head.appendChild(arrow);
+
+    // progress bar
+    const progWrap = document.createElement('div');
+    progWrap.className = 'kanban-head-prog-wrap';
+    const progBar = document.createElement('div');
+    progBar.className = 'kanban-head-prog-bar';
+    progBar.style.width = (pct * 100).toFixed(1) + '%';
+    // color red→yellow→green
+    let barColor;
+    if (pct <= 0) barColor = '#e84040';
+    else if (pct < 0.5) barColor = `rgb(232,${Math.round(64+(255-64)*pct*2)},64)`;
+    else if (pct < 1)   barColor = `rgb(${Math.round(255-(255-46)*(pct-0.5)*2)},${Math.max(Math.round(200+(158-200)*(pct-0.5)*2),158)},64)`;
+    else                barColor = '#2e9e5b';
+    progBar.style.backgroundColor = barColor;
+    progWrap.appendChild(progBar);
+
+    // Foto da categoria — cantinho superior esquerdo do cabeçalho
+    const avatarWrap = document.createElement('div');
+    avatarWrap.className = 'kanban-col-avatar-wrap';
+    const avatarCircle = document.createElement('div');
+    avatarCircle.className = 'kanban-col-avatar';
+    const catPhoto = data.catAvatars[cat];
+    if (catPhoto) {
+      const avImg = document.createElement('img');
+      avImg.src = catPhoto; avImg.alt = cat;
+      avatarCircle.appendChild(avImg);
+    } else {
+      avatarCircle.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+    }
+    avatarCircle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pendingAvatarCat = cat;
+      avatarFileIn.value = '';
+      avatarFileIn.click();
+    });
+    avatarWrap.appendChild(avatarCircle);
+    head.appendChild(avatarWrap);
+
+    head.appendChild(nameRow);
+    head.appendChild(controlsRow);
+    if (cat !== 'TAREFAS') head.appendChild(progWrap);
+    col.appendChild(head);
+
+    // ── Task preview (3 visible, scrollable, expandable) ──
+    const body = document.createElement('div');
+    body.className = 'kanban-col-body';
+    body.dataset.cat = cat;
+
+    if (!catTasks.length) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'font-size:10px;color:var(--muted);text-align:center;padding:10px 4px;opacity:0.5;';
+      empty.textContent = 'Nenhuma tarefa';
+      body.appendChild(empty);
+    } else {
+      const allSorted = [...orderedPending(cat, pending), ...done];
+      allSorted.forEach(t => body.appendChild(makeGridCard(t, cat)));
+    }
+
+    col.appendChild(body);
+    (colIdx % 2 === 0 ? colLeft : colRight).appendChild(col);
+    colIdx++;
+    requestAnimationFrame(() => {
+      attachScrollReset(body, col);
+      if (unlockedCat === cat) {
+        body.classList.add('unlocked');
+        col.classList.add('unlocked-col');
+        head.classList.add('unlocked-head');
+      }
+    });
+  });
+}
+
+function makeGridCard(t, cat) {
+  const card = document.createElement('div');
+  const todayDue = t.dueDate && isToday(t.dueDate) && !t.done;
+  const tmrwDue  = t.dueDate && isTomorrow(t.dueDate) && !t.done;
+  const futureDue = t.dueDate && !t.done && t.dueDate > tomorrowStr();
+  const overdue = t.dueDate && !t.done && t.dueDate < todayStr();
+  let cardClass = 'kanban-card' + (t.done ? ' is-done' : '');
+  if (overdue) cardClass += ' overdue';
+  else if (todayDue) cardClass += ' urgent';
+  else if (tmrwDue) cardClass += ' urgent-tomorrow';
+  else if (futureDue) cardClass += ' urgent-future';
+  card.className = cardClass;
+  card.dataset.taskId = t.id;
+
+  const check = document.createElement('div');
+  check.className = 'kanban-check';
+  check.innerHTML = `<svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1.5 6 4.5 9 10.5 3"/></svg>`;
+
+  const textWrap = document.createElement('div');
+  textWrap.className = 'kanban-text';
+
+  if (t.dueDate && !t.done) {
+    if (todayDue || tmrwDue || futureDue || overdue) {
+      const badge = document.createElement('div');
+      badge.className = 'kanban-date-badge';
+      badge.style.background = overdue ? '#ffd600' : '#e84040';
+      badge.style.color = overdue ? '#7a5a00' : '#fff';
+      badge.textContent = todayDue ? 'HOJE' : tmrwDue ? 'AMANHÃ' : overdue ? `ATRASADA - HÁ ${Math.abs(daysDiffFromToday(t.dueDate))} DIA${Math.abs(daysDiffFromToday(t.dueDate)) === 1 ? '' : 'S'}` : isAfterTomorrow(t.dueDate) ? 'DEPOIS DE AMANHÃ' : formatDateLabel(t.dueDate);
+      textWrap.appendChild(badge);
+    }
+  }
+  const gridTextSpan = document.createElement('span');
+  gridTextSpan.innerHTML = linkifyText(t.text);
+  textWrap.appendChild(gridTextSpan);
+
+  card.appendChild(check);
+  card.appendChild(textWrap);
+  const thumbZone2 = makePhotoThumbIfAny(t);
+  if (thumbZone2) card.appendChild(thumbZone2);
+
+  // Tap → unlock this category's scroll, lock all others
+  card.addEventListener('click', () => {
+    lastTouchedCat = cat;
+    if (editMode) {
+      openEditModalForTask(t.id);
+      return;
+    }
+    if (deleteMode) {
+      openDeleteModalForTask(t.id);
+      return;
+    }
+    unlockedCat = cat;
+    document.querySelectorAll('.kanban-col-body').forEach(b => b.classList.remove('unlocked'));
+    const parentBody = card.closest('.kanban-col-body');
+    if (parentBody) parentBody.classList.add('unlocked');
+    const task = data.tasks.find(x => x.id === t.id);
+    if (!task) return;
+    // Tarefa com data sendo concluída (atrasada ou não): pergunta antes
+    if (!task.done && task.dueDate) {
+      askCompleteOrReschedule(task, () => performGridToggle(task));
+      return;
+    }
+    performGridToggle(task);
+  });
+
+  function performGridToggle(task) {
+    if (!task.done) pushUndo('Concluir: ' + task.text.slice(0, 30));
+    task.done = !task.done;
+    task.doneAt = task.done ? Date.now() : null;
+    t.done = task.done; t.doneAt = task.doneAt;
+    save();
+    updateProgressBars();
+    if (task.done) {
+      const taskId = task.id;
+      const taskText = task.text;
+      queueDoneToast(taskText, () => {
+        const t2 = data.tasks.find(x => x.id === taskId);
+        if (!t2) return;
+        t2.done = false;
+        t2.doneAt = null;
+        t2.completedAt = null;
+        unlockedCat = cat;
+        // Save all scroll positions before re-render
+        const scrollMap = {};
+        document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+          scrollMap[b.dataset.cat] = b.scrollTop;
+        });
+        save(); updateProgressBars();
+        renderGrid();
+        // Restore scroll positions and flash the card
+        requestAnimationFrame(() => {
+          document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+            if (scrollMap[b.dataset.cat]) b.scrollTop = scrollMap[b.dataset.cat];
+          });
+          const restoredCard = document.querySelector(`[data-task-id="${taskId}"]`);
+          if (restoredCard) {
+            restoredCard.classList.add('flashing');
+            restoredCard.addEventListener('animationend', () => restoredCard.classList.remove('flashing'), { once: true });
+          }
+        });
+      });
+      card.classList.add('completing');
+      setTimeout(() => {
+        const scrollMap = {};
+        document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+          scrollMap[b.dataset.cat] = b.scrollTop;
+        });
+        renderGrid();
+        requestAnimationFrame(() => {
+          document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+            if (scrollMap[b.dataset.cat]) b.scrollTop = scrollMap[b.dataset.cat];
+          });
+        });
+      }, 500);
+    } else {
+      card.classList.add('popping');
+      setTimeout(() => {
+        const scrollMap = {};
+        document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+          scrollMap[b.dataset.cat] = b.scrollTop;
+        });
+        renderGrid();
+        requestAnimationFrame(() => {
+          document.querySelectorAll('.kanban-col-body[data-cat]').forEach(b => {
+            if (scrollMap[b.dataset.cat]) b.scrollTop = scrollMap[b.dataset.cat];
+          });
+        });
+      }, 220);
+    }
+  }
+
+  return card;
+}
+
+// ── AUTO-RESET SCROLL when entire category leaves viewport ──
+function attachScrollReset(body, col) {
+  if (!body || !col) return;
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) {
+        body.scrollTop = 0;
+      }
+    });
+  }, { threshold: 0 });
+  obs.observe(col);
+}
+
+// ── BUSCA ──
+const searchBtn      = document.getElementById('search-btn');
+const searchBar      = document.getElementById('search-bar');
+const searchInput    = document.getElementById('search-input');
+const searchClearBtn = document.getElementById('search-clear-btn');
+let searchActive = false;
+let searchQuery  = '';
+
+function applySearch() {
+  const q = searchQuery.trim().toLowerCase();
+  document.querySelectorAll('.task, .kanban-card').forEach(el => {
+    if (!q) { el.style.display = ''; return; }
+    const taskId = el.dataset.taskId;
+    const task = taskId ? data.tasks.find(t => t.id === taskId) : null;
+    const text = task ? task.text.toLowerCase() : el.textContent.toLowerCase();
+    el.style.display = text.includes(q) ? '' : 'none';
+  });
+}
+
+searchBtn.onclick = () => {
+  searchActive = !searchActive;
+  searchBtn.classList.toggle('search-active', searchActive);
+  searchBar.style.display = searchActive ? 'block' : 'none';
+  if (searchActive) {
+    searchInput.focus();
+  } else {
+    searchQuery = '';
+    searchInput.value = '';
+    applySearch();
+  }
+};
+
+searchInput.addEventListener('input', () => {
+  searchQuery = searchInput.value;
+  applySearch();
+});
+
+searchClearBtn.addEventListener('click', () => {
+  searchQuery = '';
+  searchInput.value = '';
+  searchInput.focus();
+  applySearch();
+});
+
+// ── BLOQUEAR ATUALIZAÇÃO DE PÁGINA ──
+document.addEventListener('keydown', e => {
+  if (e.key === 'F5' || (e.ctrlKey && e.key === 'r') || (e.metaKey && e.key === 'r')) {
+    e.preventDefault();
+  }
+});
+
+// ── MIDNIGHT AUTO-UNCHECK (all categories except TAREFAS) ──
+let lastCheckedDay = new Date().toDateString();
+function midnightCheck() {
+  const today = new Date().toDateString();
+  if (today !== lastCheckedDay) {
+    lastCheckedDay = today;
+    // Desmarca todas as tarefas concluídas, exceto categoria TAREFAS
+    let changed = false;
+    data.tasks.forEach(t => {
+      if (t.done && t.cat !== 'TAREFAS') {
+        t.done = false;
+        t.doneAt = null;
+        changed = true;
+      }
+    });
+    if (changed) { save(); render(); }
+  }
+}
+setInterval(midnightCheck, 8 * 60 * 1000); // checa a cada 8 minutos
+// Bloqueia beforeunload para avisar se tentar fechar/atualizar
+window.addEventListener('beforeunload', e => {
+  e.preventDefault();
+  e.returnValue = '';
+});
+
+
+// ── MENU: toque no fundo mostra/oculta os botões (editar e excluir ficam sempre) ──
+document.addEventListener('click', e => {
+  const bg = e.target.matches(
+    'html, body, .layout, header, .header-row, #grid-home, #grid-home-inner, .grid-col, ' +
+    '.grid-dead-zone, .page, .carousel-outer, .carousel-track, .tabs-scroll, .cat-avatars, ' +
+    '.dots, .empty, #add-bar'
+  );
+  if (!bg) return;
+  document.body.classList.toggle('menu-hidden');
+  emojiSortPanel.classList.remove('show');
+});
+
+// ── BACKUP AUTOMÁTICO (só liga dentro do app Android/Capacitor) ──
+const NATIVE_APP = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+const BK_DIR = 'Tarefas';
+const BK_FILES = ['autosave-tarefas-1.json', 'autosave-tarefas-2.json'];
+let bkTimer = null, bkSlot = 0, bkPermAsked = false, bkBusy = false;
+
+function fsPlugin() { return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem; }
+function dataIsEmpty(d) { return !d || !d.tasks || d.tasks.length === 0; }
+
+async function bkWrite(name, text) {
+  const fs = fsPlugin();
+  try {
+    await fs.writeFile({ path: BK_DIR + '/' + name, data: text, directory: 'DOCUMENTS', encoding: 'utf8', recursive: true });
+  } catch (e) {
+    // Sem acesso à pasta Documents: guarda na pasta interna do app
+    await fs.writeFile({ path: BK_DIR + '/' + name, data: text, directory: 'DATA', encoding: 'utf8', recursive: true });
+  }
+}
+
+async function doBackup() {
+  if (!NATIVE_APP) return;
+  const fs = fsPlugin();
+  if (!fs || dataIsEmpty(data)) return; // nunca grava vazio por cima de uma cópia boa
+  if (bkBusy) { scheduleBackup(); return; }
+  bkBusy = true;
+  try {
+    if (!bkPermAsked) { bkPermAsked = true; try { await fs.requestPermissions(); } catch (e) {} }
+    const text = JSON.stringify({ ...data, _savedAt: Date.now() });
+    bkSlot = 1 - bkSlot; // alterna entre as duas cópias
+    await bkWrite(BK_FILES[bkSlot], text);
+  } catch (e) { console.warn('Backup falhou', e); }
+  bkBusy = false;
+}
+
+function scheduleBackup() {
+  if (!NATIVE_APP) return;
+  clearTimeout(bkTimer);
+  bkTimer = setTimeout(doBackup, 4000);
+}
+
+async function restoreIfEmpty() {
+  if (!NATIVE_APP || !dataIsEmpty(data)) return;
+  const fs = fsPlugin();
+  if (!fs) return;
+  let best = null;
+  for (const dir of ['DOCUMENTS', 'DATA']) {
+    for (const f of BK_FILES) {
+      try {
+        const r = await fs.readFile({ path: BK_DIR + '/' + f, directory: dir, encoding: 'utf8' });
+        const obj = JSON.parse(r.data);
+        if (obj && Array.isArray(obj.cats) && Array.isArray(obj.tasks) && obj.tasks.length &&
+            (!best || (obj._savedAt || 0) > (best._savedAt || 0))) best = obj;
+      } catch (e) {}
+    }
+  }
+  if (!best) return;
+  delete best._savedAt;
+  data = best;
+  if (!data.cats.includes('TAREFAS')) data.cats.unshift('TAREFAS');
+  if (!data.catAvatars) data.catAvatars = {};
+  if (!data.collapsedCats) data.collapsedCats = [];
+  if (!data.manualOrderCats) data.manualOrderCats = [];
+  data.tasks.forEach((t, i) => {
+    if (!t.id) t.id = uid();
+    if (t.photo === undefined) t.photo = null;
+    if (t.photoType === undefined) t.photoType = (t.photo && t.photo.startsWith('data:video')) ? 'video' : 'image';
+    if (t.doneAt === undefined) t.doneAt = null;
+    if (t.order === undefined) t.order = Date.now() - i * 1000;
+    if (t.dueDate === undefined) t.dueDate = null;
+    if (t.dueTime === undefined) t.dueTime = null;
+  });
+  clearJustAdded();
+  save();
+  setTimeout(() => showDoneToast('Dados restaurados do backup'), 600);
+}
+
+// Ao minimizar o app, grava na hora (sem esperar os 4 segundos)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && NATIVE_APP) { clearTimeout(bkTimer); doBackup(); }
+});
+
+// ── SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js');
+  });
+}
+
+// ── CARREGAR ESTADO SALVO ──
+openDB().then(db => {
+  return new Promise(resolve => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).get(DB_KEY);
+    req.onsuccess = () => {
+      const saved = req.result;
+      if (saved && saved.cats) {
+        data = saved;
+        // Garantir que a categoria TAREFAS existe
+        if (!data.cats.includes('TAREFAS')) data.cats.unshift('TAREFAS');
+        // Garantir catAvatars existe
+        if (!data.catAvatars) data.catAvatars = {};
+        // Garantir collapsedCats existe
+        if (!data.collapsedCats) data.collapsedCats = [];
+        // Garantir manualOrderCats existe (categorias organizadas manualmente pelo botão 🌍)
+        if (!data.manualOrderCats) data.manualOrderCats = [];
+        // Garantir campos novos em tarefas antigas
+        data.tasks.forEach((t, i) => {
+          if (!t.id) t.id = uid();
+          if (t.photo === undefined) t.photo = null;
+          if (t.photoType === undefined) t.photoType = (t.photo && t.photo.startsWith('data:video')) ? 'video' : 'image';
+          if (t.doneAt === undefined) t.doneAt = null;
+          if (t.order === undefined) t.order = Date.now() - i * 1000;
+          if (t.dueDate === undefined) t.dueDate = null;
+          if (t.dueTime === undefined) t.dueTime = null;
+        });
+        // Tarefas "novas" voltam ao seu lugar normal após atualizar a página
+        if (clearJustAdded()) save();
+      }
+      resolve();
+    };
+    req.onerror = () => resolve();
+  });
+}).catch(() => {}).then(() => restoreIfEmpty()).catch(() => {}).finally(() => {
+  cur = Math.max(0, allCats().indexOf('TAREFAS'));
+  render();
+  setGridMode(true); // start in grid view
+});
+
+// Salva ao fechar/minimizar
+let hiddenAt = null;
+const REOPEN_RESET_MS = 5 * 60 * 1000; // só volta pro topo se ficou fora 5+ minutos
+window.addEventListener('pagehide', save);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    hiddenAt = Date.now();
+    save();
+  }
+  if (document.visibilityState === 'visible') {
+    midnightCheck();
+    const away = hiddenAt ? (Date.now() - hiddenAt) : 0;
+    hiddenAt = null;
+    if (away >= REOPEN_RESET_MS) {
+      // Ficou fora tempo suficiente: comportamento normal (pode voltar ao topo)
+      render();
+    } else {
+      // Voltou rápido (ex: só deu uma olhada na home): preserva posição/scroll atual
+      renderTabs(); renderAvatars(); renderDots();
+      if (editMode) document.querySelectorAll('.task').forEach(el => el.classList.add('edit-mode-hover'));
+      if (deleteMode) document.querySelectorAll('.task').forEach(el => el.classList.add('delete-mode-hover'));
+      if (searchActive && searchQuery) requestAnimationFrame(applySearch);
+    }
+  }
+});
+
+// Checa datas a cada 5 minutos (útil se o app ficar aberto à meia-noite)
+setInterval(() => render(), 5 * 60 * 1000);
+
+// Volta para TAREFAS a cada 7 minutos (só enquanto o app está visível/em uso)
+setInterval(() => {
+  if (document.visibilityState !== 'visible') return;
+  const idx = allCats().indexOf('TAREFAS');
+  if (idx !== -1 && cur !== idx) goTo(idx);
+}, 7 * 60 * 1000);
+</script>
+</body>
+</html>
